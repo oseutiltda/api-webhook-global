@@ -1,0 +1,601 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model WebhookEvent {
+  id         String   @id
+  source     String
+  receivedAt DateTime @default(now())
+  status     String?  @default("pending") // pending, processing, processed, failed
+  processedAt DateTime?
+  errorMessage String? @db.VarChar(1000)
+  retryCount Int      @default(0)
+  
+  // Novos campos para monitoramento de integração
+  integrationStatus String? @db.VarChar(50) // pending, integrated, failed, skipped
+  processingTimeMs  Int?    // Tempo de processamento em milissegundos
+  integrationTimeMs Int?    // Tempo de integração com Senior em milissegundos
+  seniorId          String? @db.VarChar(255) // ID gerado na Senior (ex: nrFatura, cdCartaFrete)
+  metadata          String? @db.VarChar(2000) // JSON com informações adicionais
+  tipoIntegracao    String? @db.VarChar(50) // Web API, Worker - identifica de qual serviço é o evento
+  
+  @@index([status])
+  @@index([receivedAt])
+  @@index([integrationStatus])
+  @@index([source])
+  @@index([tipoIntegracao])
+}
+
+model CteAutorizado {
+  id                   String  @id // recebido como number, armazenado como string
+  authorizationNumber  Int
+  status               String
+  xml                  String  @db.VarChar(4000)
+  eventXml             String? @db.VarChar(4000)
+  // Campos derivados
+  chCTe                String? @db.VarChar(60)
+  nProt                String? @db.VarChar(60)
+  dhEmi                String? @db.VarChar(40)
+  dhRecbto             String? @db.VarChar(40)
+  serie                String? @db.VarChar(10)
+  nCT                  String? @db.VarChar(20)
+  emitCnpj             String? @db.VarChar(20)
+  destCnpj             String? @db.VarChar(20)
+  vTPrest              Float?
+  vRec                 Float?
+
+  @@index([chCTe])
+  @@index([nProt])
+  @@index([emitCnpj])
+  @@index([destCnpj])
+}
+
+model CteCancelado {
+  id                  String  @id
+  authorizationNumber Int
+  status              String
+  xml                 String  @db.VarChar(4000)
+  eventXml            String? @db.VarChar(4000)
+  // Campos derivados
+  chCTe               String? @db.VarChar(60)
+  nProt               String? @db.VarChar(60)
+  dhRegEvento         String? @db.VarChar(40)
+  tpEvento            String? @db.VarChar(20)
+  xEvento             String? @db.VarChar(60)
+  emitCnpj            String? @db.VarChar(20)
+
+  @@index([chCTe])
+  @@index([nProt])
+}
+
+model CiotBase {
+  id               String @id
+  ciot             String
+  transportadoraCnpj String
+  criadoEm         String
+}
+
+model CiotParcela {
+  id                 String @id
+  nrciot             String
+  cdempresa          String
+  cdcartafrete       String
+  nrcgccpfprop       String
+  tpformapagamentocontratado String
+  nrformapagamentocontratado String
+  nrcgccpfmot        String
+  tpformapagamentomotorista String
+  nrformapagamentomotorista String
+  tpformapagamentosubcontratado String
+  nrformapagamentosubcontratado String
+  dtemissao          String
+  vlcarga            Float?
+  qtpesocarga        Float?
+  nrmanifesto        String
+  nrplaca            String
+  nrceporigem        String
+  nrcepdestino       String
+  fgemitida          Int?
+  dtliberacaopagto   String?
+  cdcentrocusto      String?
+  insituacao         Int
+  cdcondicaovencto   Int
+  dsobservacao       String?
+  cdtipotransporte   String?
+  cdremetente        String
+  cddestinatario     String
+  cdnaturezacarga    String
+  cdespeciecarga     String
+  clmercadoria       String?
+  qtpeso             Float?
+  cdempresaconhec    String?
+  nrseqcontrole      String?
+  nrnotafiscal       String
+  cdhistorico        String?
+  dsusuarioinc       String
+  dsusuariocanc      String?
+  dtinclusao         String
+  dtcancelamento     String?
+  intipoorigem       String
+  nrplacareboque1    String
+  nrplacareboque2    String?
+  nrplacareboque3    String?
+  cdtarifa           Int
+  dsusuarioacerto    String?
+  dtacerto           String?
+  cdinscricaocomp    String?
+  nrseriecomp        String?
+  nrcomprovante      String?
+  vlfrete            Float
+  insestsenat        Int?
+  cdmotivocancelamento String?
+  dsobscancelamento  String?
+  inveiculoproprio   Int
+  dsusuarioimpressao String?
+  dtimpressao        String?
+  dtprazomaxentrega  String
+  nrseloautenticidade String?
+  hrmaxentrega       String?
+  cdvinculacaoiss    String?
+  dthrretornociot    String?
+  cdciot             String?
+  serie              Int
+  cdmsgretornociot   String?
+  dsmsgretornociot   String?
+  inenvioarquivociot Int?
+  dsavisotransportador String?
+  nrprotocolocancciot String?
+  cdndot             String?
+  nrprotocoloautndot String?
+  inoperacaoperiodo  Int?
+  vlfreteestimado    Float?
+  inoperacaodistribuicao Int
+  nrprotocoloenctociot String?
+  indotimpresso      String?
+  inveiculo          Int
+  cdrota             String
+  inoperadorapagtoctrb String
+  inrespostaquesttacagreg Int
+  cdmoeda            String?
+  nrprotocolointerroociot String?
+  inretimposto       String?
+  cdintersenior      String?
+  nrcodigooperpagtociot String?
+  cdseqhcm           String?
+  insitcalcpedagio   String?
+  nrrepom            String?
+  vlmanifesto        Float
+  vlcombustivel      Float
+  vlpedagio          Float
+  vlnotacreditodebito Float
+  vldesconto         Float
+  vlcsll             Float
+  vlpis              Float
+  vlirff             Float
+  vlinss             Float
+  vltotalmanifesto   Float
+  vlabastecimento    Float
+  vladiantamento     Float
+  vlir               Float
+  vlsaldoapagar      Float
+  vlsaldofrete       Float
+  vlcofins           Float
+  vlsestsenat        Float
+  vliss              Float
+  cdtributacao       String?
+  vlcsl              Float
+  // relacionadas
+  parcelas           CiotParcelaItem[]
+  faturamento       CiotFaturamento?
+}
+
+model CiotParcelaItem {
+  id                String @id @default(uuid())
+  manifestoId       String
+  idparcela         String
+  nrciotsistema     String
+  nrciot            String
+  dstipo            String
+  dsstatus          String
+  cdfavorecido      String
+  cdcartafrete      String
+  cdevento          String
+  dtpagto           String
+  indesconto        Float?
+  vlbasecalculo     Float?
+  dtrecebimento     String?
+  vloriginal        Float?
+  dtinclusao        String
+  hrinclusao        String
+  dsusuarioinc      String
+  dtreferenciacalculo String
+  dsobservacao      String?
+  vlprovisionado    Float?
+
+  manifesto         CiotParcela @relation(fields: [manifestoId], references: [id], onDelete: Cascade)
+  @@index([manifestoId])
+}
+
+model CiotFaturamento {
+  id            String @id @default(uuid())
+  manifestoId   String @unique
+  cdempresa     String
+  cdcartafrete  String
+  cdempresaFV   String
+  nrficha       String?
+
+  manifesto     CiotParcela @relation(fields: [manifestoId], references: [id], onDelete: Cascade)
+}
+
+model FaturaPagar {
+  id            String @id
+  fornecedorCnpj String
+  numero        String
+  emissao       String
+  valor         Float
+  parcelas      FaturaPagarParcela[]
+}
+
+// removido: FaturaPagarBaixa antiga (substituída por versão relacional)
+
+model FaturaPagarCancelamento {
+  id     String @id
+  numero String
+  motivo String
+}
+
+model FaturaPagarParcela {
+  id             String @id @default(uuid())
+  faturaId       String
+  posicao        Int
+  dueDate        String
+  valor          Float
+  interestValue  Float?
+  discountValue  Float?
+  paymentMethod  String?
+  comments       String?
+  installmentId  Int?
+  baixas         FaturaPagarBaixa[]
+
+  fatura         FaturaPagar @relation(fields: [faturaId], references: [id], onDelete: Cascade)
+  @@index([faturaId])
+}
+
+model FaturaPagarBaixa {
+  id              String @id @default(uuid())
+  parcelaId       String
+  pagamentoEm     String
+  valorPago       Float
+  desconto        Float?
+  juros           Float?
+  formaPagamento  String?
+  contaBancaria   String?
+  banco           String?
+  numeroConta     String?
+  digitoConta     String?
+  observacao      String?
+
+  parcela         FaturaPagarParcela @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
+  @@index([parcelaId])
+}
+
+model FaturaReceber {
+  id          String @id
+  clienteCnpj String
+  numero      String
+  emissao     String
+  valor       Float
+  parcelas    FaturaReceberParcela[]
+  itens       FaturaReceberItem[]
+}
+
+model FaturaReceberBaixa {
+  id              String @id @default(uuid())
+  parcelaId       String
+  recebimentoEm   String
+  valorRecebido   Float
+  desconto        Float?
+  juros           Float?
+  formaPagamento  String?
+  contaBancaria   String?
+  banco           String?
+  numeroConta     String?
+  digitoConta     String?
+  observacao      String?
+
+  parcela         FaturaReceberParcela @relation(fields: [parcelaId], references: [id], onDelete: Cascade)
+  @@index([parcelaId])
+}
+
+model FaturaReceberParcela {
+  id             String @id @default(uuid())
+  faturaId       String
+  posicao        Int
+  dueDate        String
+  valor          Float
+  interestValue  Float?
+  discountValue  Float?
+  paymentMethod  String?
+  comments       String?
+  installmentId  Int?
+  baixas         FaturaReceberBaixa[]
+
+  fatura         FaturaReceber @relation(fields: [faturaId], references: [id], onDelete: Cascade)
+  @@index([faturaId])
+}
+
+model FaturaReceberItem {
+  id           String @id @default(uuid())
+  faturaId     String
+  cteKey       String?
+  cteNumber    String?
+  cteSeries    String?
+  payerName    String?
+  draftNumber  String?
+  nfseNumber   String?
+  nfseSeries   String?
+  total        Float?
+  type         String?
+
+  fatura       FaturaReceber @relation(fields: [faturaId], references: [id], onDelete: Cascade)
+  @@index([faturaId])
+}
+
+model NfseAutorizado {
+  id                  String   @id // chave composta lógica: prestadorCnpj-numero? Aqui manteremos como numero+prestador
+  numero              Int
+  codigoVerificacao   String?
+  dataEmissao         String
+  rpsNumero           Int
+  rpsSerie            String
+  rpsTipo             Int
+  dataEmissaoRps      String
+  naturezaOperacao    Int
+  optanteSimples      Int
+  incentivadorCultural Int
+  competencia         String
+  itemListaServico    Int
+  codTribMunicipio    String
+  discriminacao       String
+  codMunicipioServ    Int
+  valorServicos       Float
+  valorDeducoes       Float
+  issRetido           Float
+  valorIss            Float
+  valorIssRetido      Float
+  baseCalculo         Float
+  aliquota            Float
+  valorLiquidoNfse    Float
+  valorCredito        Float
+  prestadorCnpj       String
+  prestadorIM         String
+  prestadorRazao      String
+  prestadorFantasia   String
+  prestadorLogradouro String?
+  prestadorNumero     Int?
+  prestadorComplemento String?
+  prestadorBairro     String?
+  prestadorCodMunicipio Int?
+  prestadorUf         String?
+  prestadorCep        String?
+  prestadorTelefone   String?
+  prestadorEmail      String?
+  tomadorCnpj         String
+  tomadorIM           String
+  tomadorRazao        String
+  tomadorLogradouro   String?
+  tomadorNumero       Int?
+  tomadorComplemento  String?
+  tomadorBairro       String?
+  tomadorCodMunicipio Int?
+  tomadorUf           String?
+  tomadorCep           String?
+  tomadorTelefone     String?
+  tomadorEmail        String?
+  orgaoCodMunicipio   Int
+  orgaoUf             String
+  // Campos de logística de frete
+  pesoReal             Float?
+  pesoCubado           Float?
+  quantidadeVolumes    Int?
+  valorProduto         Float?
+  valorNota            Float?
+  valorFretePeso       Float?
+  valorAdv             Float?
+  valorOutros          Float?
+  comentarioFrete      String? @db.VarChar(4000)
+  usuarioAlteracao     String?
+  dataAlteracao        String?
+  dataCancelamento      String?
+  motivoCancelamento   String?
+  filialCancelamento   String?
+  cnpjConsignatario    String?
+  cnpjRedespacho       String?
+  cnpjExpedidor        String?
+  valorBaseCalculoPis  Float?
+  aliqPis              Float?
+  valorPis             Float?
+  aliqCofins           Float?
+  valorCofins          Float?
+  dataPrazo            String?
+  diasEntrega          Int?
+  cnpjRemetente        String?
+  cepRemetente         String?
+  cnpjDestinatario     String?
+  cepDestinatario      String?
+  logradouroDestinatario String?
+
+  @@index([prestadorCnpj])
+  @@index([tomadorCnpj])
+}
+
+model Pessoa {
+  id                  String   @id // codPessoaEsl
+  // Principais campos
+  nomeRazaoSocial     String?
+  nomeFantasia        String?
+  cpf                 String?
+  cnpj                String?
+  inscricaoMunicipal  String?
+  inscricaoEstadual   String?
+  ativo               Boolean?
+  // Metadados
+  dataCadastro        String?
+  usuarioCadastro     String?
+  // Armazena o payload completo como texto
+  payload             String?  @db.VarChar(4000)
+
+  enderecos           PessoaEndereco[]
+}
+
+model PessoaEndereco {
+  id                     String @id @default(uuid())
+  pessoaId               String
+  codTipoEndereco        Int
+  descricaoTipoEndereco  String?
+  cep                    String?
+  logradouro             String?
+  numero                 String?
+  complemento            String?
+  bairro                 String?
+  cidade                 String?
+  estado                 String?
+
+  pessoa                 Pessoa @relation(fields: [pessoaId], references: [id], onDelete: Cascade)
+
+  @@index([pessoaId])
+}
+
+model Nfse {
+  id                        Int       @id @default(autoincrement())
+  external_id               Int?
+  NumeroNfse                Int
+  CodigoVerificacao         String?   @db.VarChar(100)
+  DataEmissao               DateTime? @db.Timestamp(3)
+  NumeroIdentificacaoRps     Int?
+  SerieIdentificacaoRps     String?   @db.VarChar(100)
+  TipoIdentificacaoRps      Int?
+  DataEmissaoRps            DateTime? @db.Timestamp(3)
+  NaturezaOperacao          Int?
+  OptanteSimplesNacional    Int?
+  IncentivadorCultural      Int?
+  DtCompetencia             DateTime? @db.Timestamp(3)
+  ValorServicos             Decimal?  @db.Decimal(18, 2)
+  ValorDeducoes             Decimal?  @db.Decimal(18, 2)
+  IssRetido                 Int?
+  ValorIss                  Decimal?  @db.Decimal(18, 2)
+  ValorIssRetido            Decimal?  @db.Decimal(18, 2)
+  BaseCalculo               Decimal?  @db.Decimal(18, 2)
+  Aliquota                  Decimal?  @db.Decimal(18, 2)
+  ValorLiquidoNfse          Decimal?  @db.Decimal(18, 2)
+  ItemListaServico          Decimal?  @db.Decimal(18, 2)
+  CdTributacaoMunicipio     String?   @db.VarChar(50)
+  Discriminacao             String?   @db.VarChar(255)
+  CodigoMunicipio           Int?
+  ValorCredito              Decimal?  @db.Decimal(18, 2)
+  corporation_id            Int
+  external_idPrestador      Int
+  person_idPrestador        Int
+  CnpjIdentPrestador         String   @db.VarChar(14)
+  InscMunicipalPrestador     String?  @db.VarChar(100)
+  RazaoSocialPrestador       String   @db.VarChar(255)
+  NomeFantasiaPrestador      String?  @db.VarChar(255)
+  CodEnderecoPrestador       Int?
+  CodContatoPrestador        Int?
+  customer_id                Int
+  external_idTomador         Int
+  CnpjIdentTomador           String?  @db.VarChar(14)
+  CpfIdentTomador            String?  @db.VarChar(11)
+  InscMunicipalTomador       String?  @db.VarChar(100)
+  RazaoSocialTomador         String?  @db.VarChar(255)
+  CodEnderecoTomador         Int?
+  CodContatoTomador          Int?
+  CdMunicipioOrgaoGerador    Int?
+  UFOrgaoGerador             String?  @db.VarChar(50)
+  created_at                 DateTime? @default(now()) @db.Timestamp(3)
+  updated_at                 DateTime? @updatedAt @db.Timestamp(3)
+  status                     String   @db.VarChar(20)
+  error_message              String?  @db.Text
+  processed                  Boolean  @default(false)
+  cancelado                  Boolean? @default(false)
+  Obscancelado               String?  @db.VarChar(255)
+  Prestador_Logradouro       String?  @db.VarChar(255)
+  Prestador_Numero           String?  @db.VarChar(50)
+  Prestador_Complemento      String?  @db.VarChar(255)
+  Prestador_Bairro           String?  @db.VarChar(255)
+  Prestador_CodigoMunicipio  Int?
+  Prestador_UF               String?  @db.VarChar(10)
+  Prestador_CEP              String?  @db.VarChar(20)
+  Prestador_Telefone         String?  @db.VarChar(50)
+  Prestador_Email            String?  @db.VarChar(255)
+  Tomador_Logradouro         String?  @db.VarChar(255)
+  Tomador_Numero             String?  @db.VarChar(50)
+  Tomador_Complemento       String?  @db.VarChar(255)
+  Tomador_Bairro             String?  @db.VarChar(255)
+  Tomador_CodigoMunicipio    Int?
+  Tomador_UF                 String?  @db.VarChar(10)
+  Tomador_CEP                String?  @db.VarChar(20)
+  Tomador_Telefone           String?  @db.VarChar(50)
+  Tomador_Email              String?  @db.VarChar(255)
+  PesoReal                   Decimal?  @db.Decimal(18, 2)
+  PesoCubado                 Decimal?  @db.Decimal(18, 2)
+  QuantidadeVolumes          Int?
+  ValorProduto               Decimal?  @db.Decimal(18, 2)
+  ValorNota                  Decimal?  @db.Decimal(18, 2)
+  ValorFretePeso             Decimal?  @db.Decimal(18, 2)
+  ValorAdv                   Decimal?  @db.Decimal(18, 2)
+  ValorOutros                Decimal?  @db.Decimal(18, 2)
+  ComentarioFrete            String?  @db.Text
+  UsuarioAlteracao           String?  @db.VarChar(255)
+  DataDeAlteracao            DateTime? @db.Timestamp(3)
+  DataCancelamento           DateTime? @db.Timestamp(3)
+  MotivoCancelamento         String?  @db.VarChar(255)
+  FilialCancelamento         String?  @db.VarChar(100)
+  CnpjConsignatario          String?  @db.VarChar(20)
+  CnpjRedespacho             String?  @db.VarChar(255)
+  CnpjExpedidor              String?  @db.VarChar(20)
+  ValorBaseCalculoPIS        Decimal?  @db.Decimal(18, 2)
+  AliqPIS                    Decimal?  @db.Decimal(18, 2)
+  ValorPIS                   Decimal?  @db.Decimal(18, 2)
+  AliqCOFINS                 Decimal?  @db.Decimal(18, 2)
+  ValorCOFINS                Decimal?  @db.Decimal(18, 2)
+  DataPrazo                  DateTime? @db.Timestamp(3)
+  DiasEntrega                Int?
+  CnpjRemetente              String?  @db.VarChar(20)
+  CepRemetente               String?  @db.VarChar(20)
+  CnpjDestinatario           String?  @db.VarChar(20)
+  CepDestinatario            String?  @db.VarChar(20)
+  LogradouroDestinatario     String?  @db.VarChar(255)
+  NumeroJsonOriginal         Int?
+
+  @@index([NumeroNfse])
+  @@index([CnpjIdentPrestador])
+  @@index([customer_id])
+  @@index([corporation_id])
+}
+
+model Cte {
+  id                  Int       @id @default(autoincrement())
+  external_id         Int
+  authorization_number Int
+  status              String    @db.VarChar(50)
+  xml                 String    @db.Text
+  event_xml           String?   @db.Text
+  processed           Boolean   @default(false)
+  created_at          DateTime  @default(now()) @db.Timestamp(3)
+  updated_at          DateTime? @updatedAt @db.Timestamp(3)
+
+  @@map("ctes")
+  @@index([external_id])
+  @@index([authorization_number])
+  @@index([status])
+  @@index([processed])
+}
+
+

@@ -1,0 +1,7 @@
+node_modules
+dist
+.next
+coverage
+*.log
+frontend/cache
+backend/prisma/migrations

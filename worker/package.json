@@ -1,0 +1,35 @@
+{
+  "name": "worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p .",
+    "typecheck": "tsc -p . --noEmit",
+    "lint": "eslint \"src/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\" \"prisma/**/*.prisma\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"prisma/**/*.prisma\"",
+    "start": "node dist/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.0",
+    "dotenv": "^17.2.2",
+    "pino": "^9.10.0",
+    "zod": "^4.1.9"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.5.2",
+    "eslint": "^10.0.2",
+    "globals": "^17.4.0",
+    "prettier": "^3.8.1",
+    "prisma": "^6.19.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.56.1"
+  }
+}
