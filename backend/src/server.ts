@@ -3,11 +3,12 @@ import app from './app';
 import { logger } from './utils/logger';
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
+const host = process.env.HOST || '0.0.0.0';
 
 const server = createServer(app);
 
-server.listen(port, () => {
-  logger.info({ port }, 'Servidor iniciado');
+server.listen(port, host, () => {
+  logger.info({ host, port }, 'Servidor iniciado');
 });
 
 process.on('unhandledRejection', (reason, promise) => {

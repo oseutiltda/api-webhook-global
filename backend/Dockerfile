@@ -34,4 +34,4 @@ COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 3000
 
-CMD ["node", "dist/server.js"]
+CMD ["sh", "-c", "node prisma/seed.js && node dist/server.js"]

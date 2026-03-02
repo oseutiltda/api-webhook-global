@@ -59,6 +59,10 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_ADMIN1_USER: ${NEXT_PUBLIC_ADMIN1_USER:-afs@afs}
+        NEXT_PUBLIC_ADMIN1_PASSWORD: ${NEXT_PUBLIC_ADMIN1_PASSWORD:-afs123}
+        NEXT_PUBLIC_ADMIN2_USER: ${NEXT_PUBLIC_ADMIN2_USER:-admin2@admin}
+        NEXT_PUBLIC_ADMIN2_PASSWORD: ${NEXT_PUBLIC_ADMIN2_PASSWORD:-admin2#change-me}
     container_name: bmx-frontend
     restart: unless-stopped
     depends_on:

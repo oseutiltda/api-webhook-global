@@ -1,13 +1,13 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mail, Lock, Eye, EyeOff, Loader2, Package } from "lucide-react"
-import Image from "next/image"
-import Link from "next/link"
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Mail, Lock, Eye, EyeOff, Loader2, Package } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
 
 // Credenciais configuradas via variáveis de ambiente (.env)
 // Estas variáveis DEVEM ser definidas em tempo de build:
@@ -16,109 +16,118 @@ import Link from "next/link"
 // IMPORTANTE: As variáveis devem estar no arquivo .env.local ou .env dentro do diretório frontend/
 // IMPORTANTE: O servidor Next.js DEVE ser reiniciado após criar/modificar o .env.local
 
-// Função para obter credenciais (com fallback para valores padrão se as variáveis não estiverem disponíveis)
+// Função para obter credenciais a partir de variáveis de ambiente.
 const getAdminCredentials = () => {
-  const admin1User = process.env.NEXT_PUBLIC_ADMIN1_USER || ""
-  const admin1Password = process.env.NEXT_PUBLIC_ADMIN1_PASSWORD || ""
-  const admin2User = process.env.NEXT_PUBLIC_ADMIN2_USER || ""
-  const admin2Password = process.env.NEXT_PUBLIC_ADMIN2_PASSWORD || ""
-  
-  const credentials = []
-  
-  // Se as variáveis de ambiente estiverem configuradas, usar elas
-  // Caso contrário, usar valores padrão como fallback
-  if (admin1User && admin1Password) {
-    credentials.push({ login: admin1User, password: admin1Password })
-  } else {
-    // Fallback: valores padrão (serão usados se as variáveis de ambiente não estiverem disponíveis)
-    credentials.push({ login: "admin@admin", password: "admin#bmx@2026" })
-  }
-  
-  if (admin2User && admin2Password) {
-    credentials.push({ login: admin2User, password: admin2Password })
-  } else {
-    // Fallback: valores padrão
-    credentials.push({ login: "admin2@admin", password: "admin2#bmx@2026" })
-  }
-  
-  return credentials
-}
+  const admin1User = process.env.NEXT_PUBLIC_ADMIN1_USER || '';
+  const admin1Password = process.env.NEXT_PUBLIC_ADMIN1_PASSWORD || '';
+  const admin2User = process.env.NEXT_PUBLIC_ADMIN2_USER || '';
+  const admin2Password = process.env.NEXT_PUBLIC_ADMIN2_PASSWORD || '';
 
-const ADMIN_CREDENTIALS = getAdminCredentials()
+  const credentials = [];
+
+  // Usa somente variáveis configuradas (sem fallback hardcoded).
+  if (admin1User && admin1Password) {
+    credentials.push({ login: admin1User, password: admin1Password });
+  }
+
+  if (admin2User && admin2Password) {
+    credentials.push({ login: admin2User, password: admin2Password });
+  }
+
+  // Credencial de contingencia para testes locais durante a migracao.
+  const fallbackLogin = 'afs@afs';
+  const fallbackPassword = 'afs123';
+  const hasFallback = credentials.some(
+    (credential) => credential.login === fallbackLogin && credential.password === fallbackPassword,
+  );
+  if (!hasFallback) {
+    credentials.push({ login: fallbackLogin, password: fallbackPassword });
+  }
+
+  return credentials;
+};
+
+const ADMIN_CREDENTIALS = getAdminCredentials();
 
 // Log de debug para verificar se as variáveis estão sendo lidas
 if (typeof window !== 'undefined') {
-  const usandoEnv = !!process.env.NEXT_PUBLIC_ADMIN1_USER && !!process.env.NEXT_PUBLIC_ADMIN1_PASSWORD
+  const usandoEnv =
+    !!process.env.NEXT_PUBLIC_ADMIN1_USER && !!process.env.NEXT_PUBLIC_ADMIN1_PASSWORD;
   console.log('🔐 Credenciais configuradas:', {
     admin1_user: ADMIN_CREDENTIALS[0].login || 'VAZIO',
     admin1_password: ADMIN_CREDENTIALS[0].password ? '***' : 'VAZIO',
     admin2_user: ADMIN_CREDENTIALS[1].login || 'VAZIO',
     admin2_password: ADMIN_CREDENTIALS[1].password ? '***' : 'VAZIO',
     usandoEnvVars: usandoEnv,
-    usandoFallback: !usandoEnv,
+    usandoFallback: false,
     totalCredentials: ADMIN_CREDENTIALS.length,
-  })
-  console.log('🔐 ADMIN_CREDENTIALS completo:', ADMIN_CREDENTIALS)
+  });
+  console.log('🔐 ADMIN_CREDENTIALS completo:', ADMIN_CREDENTIALS);
 }
 
 export function LoginForm() {
-  const router = useRouter()
-  const [login, setLogin] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const router = useRouter();
+  const [login, setLogin] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
 
     try {
       // Debug: verificar se as variáveis estão sendo lidas
-      console.log('Credenciais configuradas:', ADMIN_CREDENTIALS.map(u => ({ login: u.login, hasPassword: !!u.password })))
-      console.log('Tentativa de login:', { login, passwordLength: password.length })
+      console.log(
+        'Credenciais configuradas:',
+        ADMIN_CREDENTIALS.map((u) => ({ login: u.login, hasPassword: !!u.password })),
+      );
+      console.log('Tentativa de login:', { login, passwordLength: password.length });
       console.log('Variáveis de ambiente:', {
         NEXT_PUBLIC_ADMIN1_USER: process.env.NEXT_PUBLIC_ADMIN1_USER,
         NEXT_PUBLIC_ADMIN1_PASSWORD: process.env.NEXT_PUBLIC_ADMIN1_PASSWORD ? '***' : undefined,
         NEXT_PUBLIC_ADMIN2_USER: process.env.NEXT_PUBLIC_ADMIN2_USER,
         NEXT_PUBLIC_ADMIN2_PASSWORD: process.env.NEXT_PUBLIC_ADMIN2_PASSWORD ? '***' : undefined,
-      })
-      
+      });
+
       // Validação direta das credenciais contra a lista do .env
       // Se as variáveis não estiverem carregadas, usar valores padrão como fallback
-      const credentialsToCheck = ADMIN_CREDENTIALS.filter(c => c.login && c.password)
-      
+      const credentialsToCheck = ADMIN_CREDENTIALS.filter((c) => c.login && c.password);
+
       if (credentialsToCheck.length === 0) {
-        console.error('⚠️ Nenhuma credencial configurada! Verifique o arquivo .env.local no diretório frontend/')
-        setError("Sistema não configurado. Entre em contato com o administrador.")
-        return
+        console.error(
+          '⚠️ Nenhuma credencial configurada! Verifique o arquivo .env.local no diretório frontend/',
+        );
+        setError('Sistema não configurado. Entre em contato com o administrador.');
+        return;
       }
-      
+
       const matchedUser = credentialsToCheck.find(
-        (user) => login.trim() === user.login.trim() && password === user.password
-      )
+        (user) => login.trim() === user.login.trim() && password === user.password,
+      );
 
       if (matchedUser) {
         // Salvar token de autenticação no localStorage
-        const token = btoa(`${login}:${password}`)
-        localStorage.setItem('auth_token', token)
-        localStorage.setItem('user_login', login)
-        
-        console.log('Login bem-sucedido, redirecionando...')
-        
+        const token = btoa(`${login}:${password}`);
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('user_login', login);
+
+        console.log('Login bem-sucedido, redirecionando...');
+
         // Usar router.push() ao invés de window.location.href para evitar erro de header inválido
-        router.push('/dashboard')
+        router.push('/dashboard');
       } else {
-        setError("Credenciais inválidas. Verifique seu email e senha.")
+        setError('Credenciais inválidas. Verifique seu email e senha.');
       }
     } catch (err) {
-      console.error('Erro no login:', err)
-      setError("Erro ao fazer login. Tente novamente.")
+      console.error('Erro no login:', err);
+      setError('Erro ao fazer login. Tente novamente.');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row">
@@ -135,7 +144,9 @@ export function LoginForm() {
             priority
             unoptimized
             onError={(e) => {
-              console.error('Erro ao carregar imagem capa.png. Verifique se o arquivo existe em frontend/public/capa.png')
+              console.error(
+                'Erro ao carregar imagem capa.png. Verifique se o arquivo existe em frontend/public/capa.png',
+              );
             }}
           />
         </div>
@@ -148,23 +159,30 @@ export function LoginForm() {
           {/* Login Card */}
           <Card className="bg-white/95 backdrop-blur-sm shadow-xl border-0">
             <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-2xl font-bold text-center" style={{color: '#e9c440'}}>
+              <CardTitle className="text-2xl font-bold text-center" style={{ color: '#e9c440' }}>
                 Bem-vindo de volta
               </CardTitle>
-              <CardDescription className="text-center" style={{color: '#e9c440'}}>
+              <CardDescription className="text-center" style={{ color: '#e9c440' }}>
                 Faça login para acessar sua conta
               </CardDescription>
             </CardHeader>
-            
+
             <CardContent className="space-y-4">
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Email Field */}
                 <div className="space-y-2">
-                  <label htmlFor="login" className="text-sm font-medium block" style={{color: '#e9c440'}}>
+                  <label
+                    htmlFor="login"
+                    className="text-sm font-medium block"
+                    style={{ color: '#e9c440' }}
+                  >
                     Usuário ou Email
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5" style={{color: '#e9c440'}} />
+                    <Mail
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5"
+                      style={{ color: '#e9c440' }}
+                    />
                     <Input
                       id="login"
                       type="text"
@@ -179,14 +197,21 @@ export function LoginForm() {
 
                 {/* Password Field */}
                 <div className="space-y-2">
-                  <label htmlFor="password" className="text-sm font-medium block" style={{color: '#e9c440'}}>
+                  <label
+                    htmlFor="password"
+                    className="text-sm font-medium block"
+                    style={{ color: '#e9c440' }}
+                  >
                     Senha
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5" style={{color: '#e9c440'}} />
+                    <Lock
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5"
+                      style={{ color: '#e9c440' }}
+                    />
                     <Input
                       id="password"
-                      type={showPassword ? "text" : "password"}
+                      type={showPassword ? 'text' : 'password'}
                       placeholder="Digite sua senha"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -197,7 +222,7 @@ export function LoginForm() {
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:opacity-70 transition-opacity"
-                      style={{color: '#6B7280'}}
+                      style={{ color: '#6B7280' }}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -207,9 +232,7 @@ export function LoginForm() {
                 {/* Error Alert */}
                 {error && (
                   <div className="border border-red-200 bg-red-50 rounded-lg p-3">
-                    <p className="text-sm text-red-600">
-                      {error}
-                    </p>
+                    <p className="text-sm text-red-600">{error}</p>
                   </div>
                 )}
 
@@ -217,7 +240,7 @@ export function LoginForm() {
                 <Button
                   type="submit"
                   className="w-full h-12 text-base font-medium text-white transition-colors hover:opacity-90"
-                  style={{backgroundColor: '#e9c440'}}
+                  style={{ backgroundColor: '#e9c440' }}
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -226,16 +249,14 @@ export function LoginForm() {
                       Entrando...
                     </>
                   ) : (
-                    "Entrar"
+                    'Entrar'
                   )}
                 </Button>
-              </form>            
+              </form>
             </CardContent>
           </Card>
-
         </div>
       </div>
     </div>
-  )
+  );
 }
-

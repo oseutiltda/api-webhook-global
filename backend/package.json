@@ -11,6 +11,9 @@
     "format": "prettier --write --ignore-unknown \"src/**/*.ts\" \"prisma/**/*.prisma\"",
     "format:check": "prettier --check --ignore-unknown \"src/**/*.ts\" \"prisma/**/*.prisma\"",
     "start": "node dist/server.js",
+    "seed": "node prisma/seed.js",
+    "seed:ctes": "node prisma/seed-ctes.js",
+    "seed:ctes-events": "node prisma/seed-ctes-events.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "test": "echo \"no tests\""
