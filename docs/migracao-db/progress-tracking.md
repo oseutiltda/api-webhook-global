@@ -29,6 +29,7 @@
     - `backend/Dockerfile` passa a executar `prisma migrate deploy` no startup antes do seed e do servidor
     - evita subir backend com schema incompleto (caso atual: ausencia de `WebhookEvent` e `ctes`)
     - `smoke-prod.sh` ajustado para payload de `/webhooks/cte/autorizado` com `id` numerico (alinhado ao schema atual)
+    - ajuste adicional no `backend/Dockerfile`: instala `prisma` no runtime (`npm install prisma --no-save`) apos `npm prune --omit=dev` para garantir disponibilidade do CLI no startup
   - dominio Pessoa com sub-lotes 5.1.1/5.1.2/5.1.3 aplicados (bypass + leituras locais + gravacao minima)
   - iniciado hardening de CTe no worker com guard explicito para bloquear fluxo SQL Server legado em PostgreSQL
   - leituras de CTe em `cteSync` migradas para Prisma no modo PostgreSQL (pendentes/cancelados)

@@ -18,6 +18,8 @@ RUN npm run build
 
 # Remove dependências de desenvolvimento após o build
 RUN npm prune --omit=dev
+# Prisma CLI é necessário em runtime para executar `prisma migrate deploy` no startup.
+RUN npm install prisma --no-save --no-audit --no-fund
 
 FROM node:20 AS runner
 
