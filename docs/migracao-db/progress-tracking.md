@@ -30,6 +30,9 @@
     - evita subir backend com schema incompleto (caso atual: ausencia de `WebhookEvent` e `ctes`)
     - `smoke-prod.sh` ajustado para payload de `/webhooks/cte/autorizado` com `id` numerico (alinhado ao schema atual)
     - ajuste adicional no `backend/Dockerfile`: instala `prisma` no runtime (`npm install prisma --no-save`) apos `npm prune --omit=dev` para garantir disponibilidade do CLI no startup
+  - hotfix frontend de conectividade em producao:
+    - `frontend/src/app/page.tsx`, `frontend/src/app/worker/page.tsx` e `frontend/src/app/worker1/page.tsx` ajustados para ignorar `NEXT_PUBLIC_API_BASE_URL` quando apontar para `localhost/127.0.0.1` no browser do cliente
+    - fallback dinamico no cliente para `${window.location.protocol}//${window.location.hostname}:3000`, garantindo consulta correta ao backend em ambiente remoto
   - dominio Pessoa com sub-lotes 5.1.1/5.1.2/5.1.3 aplicados (bypass + leituras locais + gravacao minima)
   - iniciado hardening de CTe no worker com guard explicito para bloquear fluxo SQL Server legado em PostgreSQL
   - leituras de CTe em `cteSync` migradas para Prisma no modo PostgreSQL (pendentes/cancelados)
@@ -111,6 +114,9 @@
     - `dev.sh` agora tenta matar automaticamente listeners em `3000/3001` do mesmo usuario antes de abortar por porta ocupada
     - `backend/src/server.ts` atualizado para respeitar `HOST` (fallback `0.0.0.0`)
 - Evidencias:
+  - `frontend/src/app/page.tsx`
+  - `frontend/src/app/worker/page.tsx`
+  - `frontend/src/app/worker1/page.tsx`
   - `backend/Dockerfile`
   - `backend/src/app.ts`
   - `backend/src/middleware/auth.ts`

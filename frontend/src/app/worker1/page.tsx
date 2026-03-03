@@ -1,6 +1,6 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 import {
   Activity,
   AlertCircle,
@@ -22,17 +22,11 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Home as HomeIcon,
-} from 'lucide-react'
+} from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -40,86 +34,109 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart'
-import { cn } from '@/lib/utils'
-import { useRouter } from 'next/navigation'
-import { 
-  LineChart, 
-  Line, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
-  Cell, 
+} from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart';
+import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
   Legend,
   AreaChart,
   Area,
   Tooltip,
   ComposedChart,
-} from 'recharts'
+} from 'recharts';
 
-// Função helper para obter a URL base da API
-// Quando o Nginx está fazendo proxy reverso, usar URLs relativas para evitar Mixed Content
+// Função helper para obter a URL base da API.
+// Em produção, evita `localhost` no browser do cliente e usa o mesmo host na porta 3000.
 const getApiBase = (): string => {
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
-    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL
-    if (apiUrl.startsWith('http://') || apiUrl.startsWith('https://')) {
-      if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-        if (apiUrl.startsWith('http://')) {
-          return apiUrl.replace('http://', 'https://')
-        }
-      }
-      return apiUrl
+  const resolveClientApiBase = (): string => {
+    if (typeof window === 'undefined') return 'http://localhost:3000';
+    return `${window.location.protocol}//${window.location.hostname}:3000`;
+  };
+
+  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  if (!configured) {
+    return resolveClientApiBase();
+  }
+
+  if (!configured.startsWith('http://') && !configured.startsWith('https://')) {
+    return configured;
+  }
+
+  if (typeof window === 'undefined') {
+    return configured;
+  }
+
+  try {
+    const parsed = new URL(configured);
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+      return resolveClientApiBase();
     }
-    return apiUrl
+
+    if (window.location.protocol === 'https:' && parsed.protocol === 'http:') {
+      parsed.protocol = 'https:';
+      return parsed.toString().replace(/\/$/, '');
+    }
+
+    return configured;
+  } catch {
+    return resolveClientApiBase();
   }
-  if (typeof window !== 'undefined') {
-    return '' // URL relativa
-  }
-  return 'http://localhost:3000'
-}
+};
 
 // API_BASE será calculado dinamicamente dentro das funções de fetch
 
 interface ProductivityData {
-  period: string
+  period: string;
   summary: {
-    totalEvents: number
-    totalProcessed: number
-    totalFailed: number
-    successRate: number
-    avgProcessingTimeMs: number
-    avgProcessingTimeSeconds: number
-  }
+    totalEvents: number;
+    totalProcessed: number;
+    totalFailed: number;
+    successRate: number;
+    avgProcessingTimeMs: number;
+    avgProcessingTimeSeconds: number;
+  };
   byPeriod: Array<{
-    periodo: string
-    total: number
-    processados: number
-    falhas: number
-    pendentes: number
-    processando: number
-    tempoMedioMs: number | null
-    taxaSucesso: number
-    integrados: number
-    integracaoFalhas: number
-    ciot: { unicos: number; total: number }
-    nfse: { unicos: number; total: number }
-    cte: { unicos: number; total: number }
-  }>
+    periodo: string;
+    total: number;
+    processados: number;
+    falhas: number;
+    pendentes: number;
+    processando: number;
+    tempoMedioMs: number | null;
+    taxaSucesso: number;
+    integrados: number;
+    integracaoFalhas: number;
+    ciot: { unicos: number; total: number };
+    nfse: { unicos: number; total: number };
+    cte: { unicos: number; total: number };
+  }>;
   byType: Array<{
-    source: string
-    total: number
-    processados: number
-    falhas: number
-    tempoMedioMs: number | null
-    taxaSucesso: number
-  }>
+    source: string;
+    total: number;
+    processados: number;
+    falhas: number;
+    tempoMedioMs: number | null;
+    taxaSucesso: number;
+  }>;
 }
 
 const CORES_GRAFICOS = [
@@ -131,7 +148,7 @@ const CORES_GRAFICOS = [
   '#06B6D4', // Ciano
   '#EC4899', // Rosa
   '#FF6B35', // Laranja
-]
+];
 
 function getSourceLabel(source: string): string {
   const labels: Record<string, string> = {
@@ -149,119 +166,129 @@ function getSourceLabel(source: string): string {
     '/api/CIOT/InserirContasPagarCIOT': 'CIOT - Inserir',
     '/api/CIOT/CancelarContasPagarCIOT': 'CIOT - Cancelar',
     '/api/NFSe/InserirNFSe': 'NFSe - Inserir',
-  }
-  
-  return labels[source] || source
+  };
+
+  return labels[source] || source;
 }
 
 export default function Worker1Dashboard() {
-  const router = useRouter()
-  const [productivity, setProductivity] = useState<ProductivityData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [timePeriod, setTimePeriod] = useState<'diario' | 'semanal' | 'mensal'>('mensal')
+  const router = useRouter();
+  const [productivity, setProductivity] = useState<ProductivityData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [timePeriod, setTimePeriod] = useState<'diario' | 'semanal' | 'mensal'>('mensal');
 
   // Proteção de rota: exige login (auth_token no localStorage)
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const token = localStorage.getItem('auth_token')
+    if (typeof window === 'undefined') return;
+    const token = localStorage.getItem('auth_token');
     if (!token) {
       // Usar router.push() ao invés de window.location.href para evitar erro de header inválido
-      router.push('/login')
+      router.push('/login');
     }
-  }, [router])
+  }, [router]);
 
   const fetchProductivity = async () => {
     try {
-      const apiBase = getApiBase()
-      const url = apiBase ? `${apiBase}/api/worker/productivity?period=${timePeriod}` : `/api/worker/productivity?period=${timePeriod}`
-      const res = await fetch(url)
+      const apiBase = getApiBase();
+      const url = apiBase
+        ? `${apiBase}/api/worker/productivity?period=${timePeriod}`
+        : `/api/worker/productivity?period=${timePeriod}`;
+      const res = await fetch(url);
       if (!res.ok) {
-        const errorText = await res.text()
-        console.error(`HTTP ${res.status}:`, errorText)
-        throw new Error(`HTTP ${res.status}: ${errorText}`)
+        const errorText = await res.text();
+        console.error(`HTTP ${res.status}:`, errorText);
+        throw new Error(`HTTP ${res.status}: ${errorText}`);
       }
-      const data = await res.json()
+      const data = await res.json();
       console.log('Dados de produtividade recebidos:', {
         period: data.period,
         summary: data.summary,
         byPeriodCount: data.byPeriod?.length || 0,
         byTypeCount: data.byType?.length || 0,
-      })
-      setProductivity(data)
+      });
+      setProductivity(data);
     } catch (error) {
-      console.error('Erro ao buscar produtividade:', error)
-      setProductivity(null)
+      console.error('Erro ao buscar produtividade:', error);
+      setProductivity(null);
     }
-  }
+  };
 
   const loadAll = async () => {
-    setLoading(true)
-    await fetchProductivity()
-    setLoading(false)
-  }
+    setLoading(true);
+    await fetchProductivity();
+    setLoading(false);
+  };
 
   useEffect(() => {
-    loadAll()
-    const interval = setInterval(loadAll, 60000) // Atualizar a cada 1 minuto
-    return () => clearInterval(interval)
-  }, [timePeriod])
+    loadAll();
+    const interval = setInterval(loadAll, 60000); // Atualizar a cada 1 minuto
+    return () => clearInterval(interval);
+  }, [timePeriod]);
 
   // Calcular comparações e tendências
   const calculateTrend = (data: ProductivityData['byPeriod']) => {
-    if (data.length < 2) return { direction: 'neutral', percentage: 0 }
-    const recent = data.slice(-7)
-    const previous = data.slice(-14, -7)
-    const recentAvg = recent.reduce((sum, d) => sum + d.processados, 0) / recent.length
-    const previousAvg = previous.length > 0 
-      ? previous.reduce((sum, d) => sum + d.processados, 0) / previous.length 
-      : recentAvg
-    const change = ((recentAvg - previousAvg) / (previousAvg || 1)) * 100
+    if (data.length < 2) return { direction: 'neutral', percentage: 0 };
+    const recent = data.slice(-7);
+    const previous = data.slice(-14, -7);
+    const recentAvg = recent.reduce((sum, d) => sum + d.processados, 0) / recent.length;
+    const previousAvg =
+      previous.length > 0
+        ? previous.reduce((sum, d) => sum + d.processados, 0) / previous.length
+        : recentAvg;
+    const change = ((recentAvg - previousAvg) / (previousAvg || 1)) * 100;
     return {
       direction: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
-      percentage: Math.abs(change)
-    }
-  }
+      percentage: Math.abs(change),
+    };
+  };
 
-  const trend = productivity?.byPeriod ? calculateTrend(productivity.byPeriod) : { direction: 'neutral', percentage: 0 }
+  const trend = productivity?.byPeriod
+    ? calculateTrend(productivity.byPeriod)
+    : { direction: 'neutral', percentage: 0 };
 
   // Preparar dados para gráficos
-  const dadosPorPeriodo = productivity?.byPeriod || []
-  const dadosRegistrosUnicos = productivity?.byPeriod.map(p => ({
-    periodo: p.periodo,
-    ciot: p.ciot.unicos,
-    nfse: p.nfse.unicos,
-    cte: p.cte.unicos,
-  })) || []
-
-  const dadosTaxaSucesso = productivity?.byPeriod.map(p => ({
-    periodo: p.periodo,
-    taxaSucesso: p.taxaSucesso,
-  })) || []
-
-  const dadosTempoMedio = productivity?.byPeriod
-    .filter(p => p.tempoMedioMs !== null)
-    .map(p => ({
+  const dadosPorPeriodo = productivity?.byPeriod || [];
+  const dadosRegistrosUnicos =
+    productivity?.byPeriod.map((p) => ({
       periodo: p.periodo,
-      tempoSegundos: p.tempoMedioMs ? (p.tempoMedioMs / 1000).toFixed(2) : 0,
-    })) || []
+      ciot: p.ciot.unicos,
+      nfse: p.nfse.unicos,
+      cte: p.cte.unicos,
+    })) || [];
 
-  const dadosPorTipo = productivity?.byType
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 8)
-    .map((item, idx) => ({
-      nome: item.source, // Já vem agrupado do backend (NFSe, CIOT, CT-e, etc.)
-      total: item.total,
-      processados: item.processados,
-      falhas: item.falhas,
-      taxaSucesso: item.taxaSucesso,
-      cor: CORES_GRAFICOS[idx % CORES_GRAFICOS.length],
-    })) || []
+  const dadosTaxaSucesso =
+    productivity?.byPeriod.map((p) => ({
+      periodo: p.periodo,
+      taxaSucesso: p.taxaSucesso,
+    })) || [];
 
-  const dadosIntegracao = productivity?.byPeriod.map(p => ({
-    periodo: p.periodo,
-    integrados: p.integrados,
-    falhasIntegracao: p.integracaoFalhas,
-  })) || []
+  const dadosTempoMedio =
+    productivity?.byPeriod
+      .filter((p) => p.tempoMedioMs !== null)
+      .map((p) => ({
+        periodo: p.periodo,
+        tempoSegundos: p.tempoMedioMs ? (p.tempoMedioMs / 1000).toFixed(2) : 0,
+      })) || [];
+
+  const dadosPorTipo =
+    productivity?.byType
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8)
+      .map((item, idx) => ({
+        nome: item.source, // Já vem agrupado do backend (NFSe, CIOT, CT-e, etc.)
+        total: item.total,
+        processados: item.processados,
+        falhas: item.falhas,
+        taxaSucesso: item.taxaSucesso,
+        cor: CORES_GRAFICOS[idx % CORES_GRAFICOS.length],
+      })) || [];
+
+  const dadosIntegracao =
+    productivity?.byPeriod.map((p) => ({
+      periodo: p.periodo,
+      integrados: p.integrados,
+      falhasIntegracao: p.integracaoFalhas,
+    })) || [];
 
   const summary = productivity?.summary || {
     totalEvents: 0,
@@ -270,7 +297,7 @@ export default function Worker1Dashboard() {
     successRate: 0,
     avgProcessingTimeMs: 0,
     avgProcessingTimeSeconds: 0,
-  }
+  };
 
   return (
     <div className="min-h-screen bg-muted/40 pb-12">
@@ -286,7 +313,10 @@ export default function Worker1Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <Tabs value={timePeriod} onValueChange={(v) => setTimePeriod(v as any)}>
+            <Tabs
+              value={timePeriod}
+              onValueChange={(v) => setTimePeriod(v as 'diario' | 'semanal' | 'mensal')}
+            >
               <TabsList className="bg-muted/60">
                 <TabsTrigger value="diario">
                   <Calendar className="h-4 w-4 mr-2" />
@@ -302,11 +332,7 @@ export default function Worker1Dashboard() {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <Button
-              onClick={() => router.push('/dashboard')}
-              variant="outline"
-              size="sm"
-            >
+            <Button onClick={() => router.push('/dashboard')} variant="outline" size="sm">
               <HomeIcon className="w-4 h-4 mr-2" />
               Voltar
             </Button>
@@ -388,7 +414,7 @@ export default function Worker1Dashboard() {
                 {loading ? '...' : summary.totalFailed.toLocaleString('pt-BR')}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {summary.totalEvents > 0 
+                {summary.totalEvents > 0
                   ? `${((summary.totalFailed / summary.totalEvents) * 100).toFixed(1)}% do total`
                   : '0%'}
               </p>
@@ -418,23 +444,16 @@ export default function Worker1Dashboard() {
             >
               <ComposedChart data={dadosPorPeriodo}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis 
-                  dataKey="periodo" 
-                  className="text-xs"
-                  tick={{ fill: 'currentColor' }}
-                />
-                <YAxis 
-                  className="text-xs"
-                  tick={{ fill: 'currentColor' }}
-                />
+                <XAxis dataKey="periodo" className="text-xs" tick={{ fill: 'currentColor' }} />
+                <YAxis className="text-xs" tick={{ fill: 'currentColor' }} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
                 <Bar dataKey="processados" fill="#10B981" name="Processados" />
                 <Bar dataKey="falhas" fill="#EF4444" name="Falhas" />
-                <Line 
-                  type="monotone" 
-                  dataKey="pendentes" 
-                  stroke="#F59E0B" 
+                <Line
+                  type="monotone"
+                  dataKey="pendentes"
+                  stroke="#F59E0B"
                   strokeWidth={2}
                   name="Pendentes"
                 />
@@ -464,21 +483,13 @@ export default function Worker1Dashboard() {
                 <AreaChart data={dadosTaxaSucesso}>
                   <defs>
                     <linearGradient id="colorTaxaSucesso" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis 
-                    dataKey="periodo" 
-                    className="text-xs"
-                    tick={{ fill: 'currentColor' }}
-                  />
-                  <YAxis 
-                    className="text-xs"
-                    domain={[0, 100]}
-                    tick={{ fill: 'currentColor' }}
-                  />
+                  <XAxis dataKey="periodo" className="text-xs" tick={{ fill: 'currentColor' }} />
+                  <YAxis className="text-xs" domain={[0, 100]} tick={{ fill: 'currentColor' }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Area
                     type="monotone"
@@ -512,15 +523,8 @@ export default function Worker1Dashboard() {
               >
                 <BarChart data={dadosRegistrosUnicos}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis 
-                    dataKey="periodo" 
-                    className="text-xs"
-                    tick={{ fill: 'currentColor' }}
-                  />
-                  <YAxis 
-                    className="text-xs"
-                    tick={{ fill: 'currentColor' }}
-                  />
+                  <XAxis dataKey="periodo" className="text-xs" tick={{ fill: 'currentColor' }} />
+                  <YAxis className="text-xs" tick={{ fill: 'currentColor' }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
                   <Bar dataKey="ciot" stackId="a" fill="#3B82F6" name="CIOT" />
@@ -552,15 +556,8 @@ export default function Worker1Dashboard() {
               >
                 <LineChart data={dadosTempoMedio}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis 
-                    dataKey="periodo" 
-                    className="text-xs"
-                    tick={{ fill: 'currentColor' }}
-                  />
-                  <YAxis 
-                    className="text-xs"
-                    tick={{ fill: 'currentColor' }}
-                  />
+                  <XAxis dataKey="periodo" className="text-xs" tick={{ fill: 'currentColor' }} />
+                  <YAxis className="text-xs" tick={{ fill: 'currentColor' }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Line
                     type="monotone"
@@ -594,24 +591,17 @@ export default function Worker1Dashboard() {
                 <AreaChart data={dadosIntegracao}>
                   <defs>
                     <linearGradient id="colorIntegrados" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorFalhasIntegracao" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis 
-                    dataKey="periodo" 
-                    className="text-xs"
-                    tick={{ fill: 'currentColor' }}
-                  />
-                  <YAxis 
-                    className="text-xs"
-                    tick={{ fill: 'currentColor' }}
-                  />
+                  <XAxis dataKey="periodo" className="text-xs" tick={{ fill: 'currentColor' }} />
+                  <YAxis className="text-xs" tick={{ fill: 'currentColor' }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
                   <Area
@@ -646,13 +636,16 @@ export default function Worker1Dashboard() {
           <CardContent>
             <div className="grid gap-6 lg:grid-cols-2">
               <ChartContainer
-                config={dadosPorTipo.reduce((acc, item) => {
-                  acc[item.nome.toLowerCase().replace(/\s+/g, '_')] = {
-                    label: item.nome,
-                    color: item.cor,
-                  }
-                  return acc
-                }, {} as Record<string, { label: string; color: string }>)}
+                config={dadosPorTipo.reduce(
+                  (acc, item) => {
+                    acc[item.nome.toLowerCase().replace(/\s+/g, '_')] = {
+                      label: item.nome,
+                      color: item.cor,
+                    };
+                    return acc;
+                  },
+                  {} as Record<string, { label: string; color: string }>,
+                )}
                 className="h-[300px]"
               >
                 <PieChart>
@@ -706,8 +699,14 @@ export default function Worker1Dashboard() {
                             {item.total.toLocaleString('pt-BR')}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Badge 
-                              variant={item.taxaSucesso >= 95 ? "default" : item.taxaSucesso >= 80 ? "secondary" : "destructive"}
+                            <Badge
+                              variant={
+                                item.taxaSucesso >= 95
+                                  ? 'default'
+                                  : item.taxaSucesso >= 80
+                                    ? 'secondary'
+                                    : 'destructive'
+                              }
                             >
                               {item.taxaSucesso.toFixed(1)}%
                             </Badge>
@@ -738,28 +737,43 @@ export default function Worker1Dashboard() {
                   <div className="text-center p-4 rounded-lg bg-blue-50 dark:bg-blue-950">
                     <p className="text-sm text-muted-foreground mb-2">CIOT Únicos</p>
                     <p className="text-3xl font-bold text-blue-600">
-                      {productivity.byPeriod.reduce((sum, p) => sum + p.ciot.unicos, 0).toLocaleString('pt-BR')}
+                      {productivity.byPeriod
+                        .reduce((sum, p) => sum + p.ciot.unicos, 0)
+                        .toLocaleString('pt-BR')}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {productivity.byPeriod.reduce((sum, p) => sum + p.ciot.total, 0).toLocaleString('pt-BR')} eventos totais
+                      {productivity.byPeriod
+                        .reduce((sum, p) => sum + p.ciot.total, 0)
+                        .toLocaleString('pt-BR')}{' '}
+                      eventos totais
                     </p>
                   </div>
                   <div className="text-center p-4 rounded-lg bg-green-50 dark:bg-green-950">
                     <p className="text-sm text-muted-foreground mb-2">NFSE Únicos</p>
                     <p className="text-3xl font-bold text-green-600">
-                      {productivity.byPeriod.reduce((sum, p) => sum + p.nfse.unicos, 0).toLocaleString('pt-BR')}
+                      {productivity.byPeriod
+                        .reduce((sum, p) => sum + p.nfse.unicos, 0)
+                        .toLocaleString('pt-BR')}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {productivity.byPeriod.reduce((sum, p) => sum + p.nfse.total, 0).toLocaleString('pt-BR')} eventos totais
+                      {productivity.byPeriod
+                        .reduce((sum, p) => sum + p.nfse.total, 0)
+                        .toLocaleString('pt-BR')}{' '}
+                      eventos totais
                     </p>
                   </div>
                   <div className="text-center p-4 rounded-lg bg-purple-50 dark:bg-purple-950">
                     <p className="text-sm text-muted-foreground mb-2">CT-e Únicos</p>
                     <p className="text-3xl font-bold text-purple-600">
-                      {productivity.byPeriod.reduce((sum, p) => sum + p.cte.unicos, 0).toLocaleString('pt-BR')}
+                      {productivity.byPeriod
+                        .reduce((sum, p) => sum + p.cte.unicos, 0)
+                        .toLocaleString('pt-BR')}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {productivity.byPeriod.reduce((sum, p) => sum + p.cte.total, 0).toLocaleString('pt-BR')} eventos totais
+                      {productivity.byPeriod
+                        .reduce((sum, p) => sum + p.cte.total, 0)
+                        .toLocaleString('pt-BR')}{' '}
+                      eventos totais
                     </p>
                   </div>
                 </>
@@ -769,5 +783,5 @@ export default function Worker1Dashboard() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

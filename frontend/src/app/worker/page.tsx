@@ -1,6 +1,6 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 import {
   Activity,
   AlertCircle,
@@ -11,21 +11,15 @@ import {
   XCircle,
   Zap,
   Home as HomeIcon,
-} from 'lucide-react'
+} from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { useRouter } from 'next/navigation'
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -33,194 +27,248 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn } from '@/lib/utils'
-import { MetadataCell } from '@/components/ui/metadata-cell'
-import { TruncatedCell } from '@/components/ui/truncated-cell'
+} from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
+import { MetadataCell } from '@/components/ui/metadata-cell';
+import { TruncatedCell } from '@/components/ui/truncated-cell';
 
-// Função helper para obter a URL base da API
-// Quando o Nginx está fazendo proxy reverso, usar URLs relativas para evitar Mixed Content
+// Função helper para obter a URL base da API.
+// Em produção, evita `localhost` no browser do cliente e usa o mesmo host na porta 3000.
 const getApiBase = (): string => {
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
-    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL
-    if (apiUrl.startsWith('http://') || apiUrl.startsWith('https://')) {
-      if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-        if (apiUrl.startsWith('http://')) {
-          return apiUrl.replace('http://', 'https://')
-        }
-      }
-      return apiUrl
+  const resolveClientApiBase = (): string => {
+    if (typeof window === 'undefined') return 'http://localhost:3000';
+    return `${window.location.protocol}//${window.location.hostname}:3000`;
+  };
+
+  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  if (!configured) {
+    return resolveClientApiBase();
+  }
+
+  if (!configured.startsWith('http://') && !configured.startsWith('https://')) {
+    return configured;
+  }
+
+  if (typeof window === 'undefined') {
+    return configured;
+  }
+
+  try {
+    const parsed = new URL(configured);
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+      return resolveClientApiBase();
     }
-    return apiUrl
+
+    if (window.location.protocol === 'https:' && parsed.protocol === 'http:') {
+      parsed.protocol = 'https:';
+      return parsed.toString().replace(/\/$/, '');
+    }
+
+    return configured;
+  } catch {
+    return resolveClientApiBase();
   }
-  if (typeof window !== 'undefined') {
-    return '' // URL relativa
-  }
-  return 'http://localhost:3000'
-}
+};
 
 // API_BASE será calculado dinamicamente dentro das funções de fetch
 
 interface WorkerStats {
-  total: number
-  totalLast24h?: number // Total de eventos nas últimas 24h
-  pending: number
-  processing: number
-  processed: number
-  failed: number
-  failedLast24h?: number // Falhas nas últimas 24h
-  processedLast24h: number
-  successRate: number
-  eventsByType: Array<{ source: string; count: number }>
+  total: number;
+  totalLast24h?: number; // Total de eventos nas últimas 24h
+  pending: number;
+  processing: number;
+  processed: number;
+  failed: number;
+  failedLast24h?: number; // Falhas nas últimas 24h
+  processedLast24h: number;
+  successRate: number;
+  eventsByType: Array<{ source: string; count: number }>;
 }
 
 interface WorkerEvent {
-  id: string
-  source: string
-  receivedAt: string
-  status: string | null
-  processedAt: string | null
-  errorMessage: string | null
-  retryCount: number
-  metadata: string | null
+  id: string;
+  source: string;
+  receivedAt: string;
+  status: string | null;
+  processedAt: string | null;
+  errorMessage: string | null;
+  retryCount: number;
+  metadata: string | null;
 }
 
 interface PerformanceMetrics {
-  avgProcessingTimeMs: number
-  avgProcessingTimeSeconds: number
-  totalProcessed: number
-  hourlyStats: Array<{ hour: number; count: number }>
+  avgProcessingTimeMs: number;
+  avgProcessingTimeSeconds: number;
+  totalProcessed: number;
+  hourlyStats: Array<{ hour: number; count: number }>;
 }
 
 function StatusBadge({ status }: { status: string | null }) {
   const statusMap: Record<string, { label: string; className: string }> = {
     pending: { label: 'Pendente', className: 'border-blue-200 bg-blue-500/10 text-blue-600' },
     processing: { label: 'Processando', className: 'border-sky-200 bg-sky-500/10 text-sky-600' },
-    processed: { label: 'Processado', className: 'border-emerald-200 bg-emerald-500/10 text-emerald-600' },
+    processed: {
+      label: 'Processado',
+      className: 'border-emerald-200 bg-emerald-500/10 text-emerald-600',
+    },
     failed: { label: 'Falhou', className: 'border-rose-200 bg-rose-500/10 text-rose-600' },
-  }
+  };
 
-  const config = statusMap[status || 'pending'] || statusMap.pending
+  const config = statusMap[status || 'pending'] || statusMap.pending;
 
   return (
     <Badge variant="outline" className={cn('capitalize', config.className)}>
       {config.label}
     </Badge>
-  )
+  );
 }
 
 export default function WorkerDashboard() {
-  const router = useRouter()
-  const [stats, setStats] = useState<WorkerStats | null>(null)
-  const [events, setEvents] = useState<WorkerEvent[]>([])
-  const [failures, setFailures] = useState<WorkerEvent[]>([])
-  const [performance, setPerformance] = useState<PerformanceMetrics | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const router = useRouter();
+  const [stats, setStats] = useState<WorkerStats | null>(null);
+  const [events, setEvents] = useState<WorkerEvent[]>([]);
+  const [failures, setFailures] = useState<WorkerEvent[]>([]);
+  const [performance, setPerformance] = useState<PerformanceMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Proteção de rota: exige login (auth_token no localStorage)
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const token = localStorage.getItem('auth_token')
+    if (typeof window === 'undefined') return;
+    const token = localStorage.getItem('auth_token');
     if (!token) {
       // Usar router.push() ao invés de window.location.href para evitar erro de header inválido
-      router.push('/login')
+      router.push('/login');
     }
-  }, [router])
+  }, [router]);
 
   const fetchStats = async () => {
     try {
-      const apiBase = getApiBase()
-      const url = apiBase ? `${apiBase}/api/worker/stats` : '/api/worker/stats'
-      const res = await fetch(url)
+      const apiBase = getApiBase();
+      const url = apiBase ? `${apiBase}/api/worker/stats` : '/api/worker/stats';
+      const res = await fetch(url);
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
-      const data = await res.json()
-      setStats(data || { total: 0, pending: 0, processing: 0, processed: 0, failed: 0, processedLast24h: 0, successRate: 0, eventsByType: [] })
+      const data = await res.json();
+      setStats(
+        data || {
+          total: 0,
+          pending: 0,
+          processing: 0,
+          processed: 0,
+          failed: 0,
+          processedLast24h: 0,
+          successRate: 0,
+          eventsByType: [],
+        },
+      );
     } catch (error) {
-      console.error('Erro ao buscar estatísticas:', error)
-      setStats({ total: 0, pending: 0, processing: 0, processed: 0, failed: 0, processedLast24h: 0, successRate: 0, eventsByType: [] })
+      console.error('Erro ao buscar estatísticas:', error);
+      setStats({
+        total: 0,
+        pending: 0,
+        processing: 0,
+        processed: 0,
+        failed: 0,
+        processedLast24h: 0,
+        successRate: 0,
+        eventsByType: [],
+      });
     }
-  }
+  };
 
   const fetchEvents = async () => {
     try {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '50',
-      })
+      });
       if (statusFilter !== 'all') {
-        params.append('status', statusFilter)
+        params.append('status', statusFilter);
       }
-      const apiBase = getApiBase()
-      const url = apiBase ? `${apiBase}/api/worker/events?${params}` : `/api/worker/events?${params}`
-      const res = await fetch(url)
+      const apiBase = getApiBase();
+      const url = apiBase
+        ? `${apiBase}/api/worker/events?${params}`
+        : `/api/worker/events?${params}`;
+      const res = await fetch(url);
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
-      const data = await res.json()
-      setEvents(data.events || [])
+      const data = await res.json();
+      setEvents(data.events || []);
     } catch (error) {
-      console.error('Erro ao buscar eventos:', error)
-      setEvents([])
+      console.error('Erro ao buscar eventos:', error);
+      setEvents([]);
     }
-  }
+  };
 
   const fetchFailures = async () => {
     try {
-      const apiBase = getApiBase()
-      const url = apiBase ? `${apiBase}/api/worker/failures` : '/api/worker/failures'
-      const res = await fetch(url)
+      const apiBase = getApiBase();
+      const url = apiBase ? `${apiBase}/api/worker/failures` : '/api/worker/failures';
+      const res = await fetch(url);
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
-      const data = await res.json()
-      setFailures(data || [])
+      const data = await res.json();
+      setFailures(data || []);
     } catch (error) {
-      console.error('Erro ao buscar falhas:', error)
-      setFailures([])
+      console.error('Erro ao buscar falhas:', error);
+      setFailures([]);
     }
-  }
+  };
 
   const fetchPerformance = async () => {
     try {
-      const apiBase = getApiBase()
-      const url = apiBase ? `${apiBase}/api/worker/performance` : '/api/worker/performance'
-      const res = await fetch(url)
+      const apiBase = getApiBase();
+      const url = apiBase ? `${apiBase}/api/worker/performance` : '/api/worker/performance';
+      const res = await fetch(url);
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
-      const data = await res.json()
-      setPerformance(data || { avgProcessingTimeSeconds: 0, avgProcessingTimeMs: 0, totalProcessed: 0, hourlyStats: [] })
+      const data = await res.json();
+      setPerformance(
+        data || {
+          avgProcessingTimeSeconds: 0,
+          avgProcessingTimeMs: 0,
+          totalProcessed: 0,
+          hourlyStats: [],
+        },
+      );
     } catch (error) {
-      console.error('Erro ao buscar performance:', error)
-      setPerformance({ avgProcessingTimeSeconds: 0, avgProcessingTimeMs: 0, totalProcessed: 0, hourlyStats: [] })
+      console.error('Erro ao buscar performance:', error);
+      setPerformance({
+        avgProcessingTimeSeconds: 0,
+        avgProcessingTimeMs: 0,
+        totalProcessed: 0,
+        hourlyStats: [],
+      });
     }
-  }
+  };
 
   const loadAll = async () => {
-    setLoading(true)
-    await Promise.all([fetchStats(), fetchEvents(), fetchFailures(), fetchPerformance()])
-    setLoading(false)
-  }
+    setLoading(true);
+    await Promise.all([fetchStats(), fetchEvents(), fetchFailures(), fetchPerformance()]);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    loadAll()
-    const interval = setInterval(loadAll, 10000) // Atualizar a cada 10s
-    return () => clearInterval(interval)
-  }, [page, statusFilter])
+    loadAll();
+    const interval = setInterval(loadAll, 10000); // Atualizar a cada 10s
+    return () => clearInterval(interval);
+  }, [page, statusFilter]);
 
   useEffect(() => {
-    fetchEvents()
-  }, [page, statusFilter])
+    fetchEvents();
+  }, [page, statusFilter]);
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleString('pt-BR')
-  }
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('pt-BR');
+  };
 
   const getSourceLabel = (source: string) => {
     const labels: Record<string, string> = {
@@ -231,22 +279,22 @@ export default function WorkerDashboard() {
       '/webhooks/faturas/receber/criar': 'Fatura Receber',
       '/webhooks/nfse/autorizado': 'NFSe Autorizado',
       '/webhooks/pessoa/upsert': 'Pessoa Upsert',
-    }
-    
+    };
+
     // Eventos processados pelo worker (NFSe)
     if (source.startsWith('worker/nfse/')) {
       // Extrair número da NFSe do formato: "worker/nfse/{id} (NFSe: {numero})"
-      const nfseMatch = source.match(/\(NFSe:\s*(\d+)\)/)
+      const nfseMatch = source.match(/\(NFSe:\s*(\d+)\)/);
       if (nfseMatch && nfseMatch[1]) {
-        return `NFSe Processada (Numero: ${nfseMatch[1]})`
+        return `NFSe Processada (Numero: ${nfseMatch[1]})`;
       }
       // Fallback: se não tiver o número, usar o ID
-      const nfseId = source.split('/').pop()?.split(' ')[0] || 'N/A'
-      return `NFSe Processada (ID: ${nfseId})`
+      const nfseId = source.split('/').pop()?.split(' ')[0] || 'N/A';
+      return `NFSe Processada (ID: ${nfseId})`;
     }
-    
-    return labels[source] || source
-  }
+
+    return labels[source] || source;
+  };
 
   return (
     <div className="min-h-screen bg-muted/40 pb-12">
@@ -261,11 +309,7 @@ export default function WorkerDashboard() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button
-              onClick={() => router.push('/dashboard')}
-              variant="outline"
-              size="sm"
-            >
+            <Button onClick={() => router.push('/dashboard')} variant="outline" size="sm">
               <HomeIcon className="w-4 h-4 mr-2" />
               Voltar
             </Button>
@@ -285,7 +329,9 @@ export default function WorkerDashboard() {
                 <Activity className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{((stats.totalLast24h ?? stats.total) || 0).toLocaleString()}</div>
+                <div className="text-2xl font-bold">
+                  {((stats.totalLast24h ?? stats.total) || 0).toLocaleString()}
+                </div>
                 <p className="text-xs text-muted-foreground">Últimas 24 horas</p>
               </CardContent>
             </Card>
@@ -322,7 +368,9 @@ export default function WorkerDashboard() {
                 <XCircle className="h-4 w-4 text-rose-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-rose-600">{((stats.failedLast24h ?? stats.failed) || 0).toLocaleString()}</div>
+                <div className="text-2xl font-bold text-rose-600">
+                  {((stats.failedLast24h ?? stats.failed) || 0).toLocaleString()}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {failures.length} requerem atenção (últimas 24h)
                 </p>
@@ -342,9 +390,7 @@ export default function WorkerDashboard() {
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
                   <p className="text-sm text-muted-foreground">Tempo médio</p>
-                  <p className="text-2xl font-bold">
-                    {performance.avgProcessingTimeSeconds || 0}s
-                  </p>
+                  <p className="text-2xl font-bold">{performance.avgProcessingTimeSeconds || 0}s</p>
                   <p className="text-xs text-muted-foreground">
                     ({(performance.avgProcessingTimeMs || 0).toLocaleString()}ms)
                   </p>
@@ -395,8 +441,8 @@ export default function WorkerDashboard() {
                     <select
                       value={statusFilter}
                       onChange={(e) => {
-                        setStatusFilter(e.target.value)
-                        setPage(1)
+                        setStatusFilter(e.target.value);
+                        setPage(1);
                       }}
                       className="flex h-10 w-40 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -418,8 +464,12 @@ export default function WorkerDashboard() {
                           <TableHead className="min-w-[120px]">ID</TableHead>
                           <TableHead className="min-w-[120px]">Tipo</TableHead>
                           <TableHead className="min-w-[100px]">Status</TableHead>
-                          <TableHead className="min-w-[140px] hidden md:table-cell">Recebido em</TableHead>
-                          <TableHead className="min-w-[140px] hidden lg:table-cell">Processado em</TableHead>
+                          <TableHead className="min-w-[140px] hidden md:table-cell">
+                            Recebido em
+                          </TableHead>
+                          <TableHead className="min-w-[140px] hidden lg:table-cell">
+                            Processado em
+                          </TableHead>
                           <TableHead className="min-w-[60px]">Retries</TableHead>
                           <TableHead className="min-w-[150px] hidden sm:table-cell">Erro</TableHead>
                           <TableHead className="min-w-[180px]">Metadados</TableHead>
@@ -435,8 +485,12 @@ export default function WorkerDashboard() {
                         ) : (
                           events.map((event) => (
                             <TableRow key={event.id}>
-                              <TableCell className="font-mono text-xs break-all">{event.id}</TableCell>
-                              <TableCell className="text-xs sm:text-sm">{getSourceLabel(event.source)}</TableCell>
+                              <TableCell className="font-mono text-xs break-all">
+                                {event.id}
+                              </TableCell>
+                              <TableCell className="text-xs sm:text-sm">
+                                {getSourceLabel(event.source)}
+                              </TableCell>
                               <TableCell>
                                 <StatusBadge status={event.status} />
                               </TableCell>
@@ -448,8 +502,8 @@ export default function WorkerDashboard() {
                               </TableCell>
                               <TableCell className="text-center">{event.retryCount}</TableCell>
                               <TableCell className="hidden sm:table-cell">
-                                <TruncatedCell 
-                                  text={event.errorMessage || null} 
+                                <TruncatedCell
+                                  text={event.errorMessage || null}
                                   maxLength={50}
                                   title="Mensagem de erro completa"
                                   textClassName="text-muted-foreground"
@@ -508,7 +562,9 @@ export default function WorkerDashboard() {
                           <TableHead className="min-w-[120px]">ID</TableHead>
                           <TableHead className="min-w-[120px]">Tipo</TableHead>
                           <TableHead className="min-w-[80px]">Retries</TableHead>
-                          <TableHead className="min-w-[140px] hidden md:table-cell">Recebido em</TableHead>
+                          <TableHead className="min-w-[140px] hidden md:table-cell">
+                            Recebido em
+                          </TableHead>
                           <TableHead className="min-w-[200px]">Erro</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -522,8 +578,12 @@ export default function WorkerDashboard() {
                         ) : (
                           failures.map((event) => (
                             <TableRow key={event.id}>
-                              <TableCell className="font-mono text-xs break-all">{event.id}</TableCell>
-                              <TableCell className="text-xs sm:text-sm">{getSourceLabel(event.source)}</TableCell>
+                              <TableCell className="font-mono text-xs break-all">
+                                {event.id}
+                              </TableCell>
+                              <TableCell className="text-xs sm:text-sm">
+                                {getSourceLabel(event.source)}
+                              </TableCell>
                               <TableCell>
                                 <Badge variant="destructive">{event.retryCount}</Badge>
                               </TableCell>
@@ -531,8 +591,8 @@ export default function WorkerDashboard() {
                                 {formatDate(event.receivedAt)}
                               </TableCell>
                               <TableCell>
-                                <TruncatedCell 
-                                  text={event.errorMessage || 'Erro desconhecido'} 
+                                <TruncatedCell
+                                  text={event.errorMessage || 'Erro desconhecido'}
                                   maxLength={50}
                                   title="Mensagem de erro completa"
                                   className="text-rose-600"
@@ -566,9 +626,7 @@ export default function WorkerDashboard() {
                             <div
                               className="h-2 rounded-full bg-primary"
                               style={{
-                                width: `${
-                                  (item.count / stats.processedLast24h) * 100
-                                }%`,
+                                width: `${(item.count / stats.processedLast24h) * 100}%`,
                               }}
                             />
                           </div>
@@ -578,9 +636,7 @@ export default function WorkerDashboard() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-center text-muted-foreground">
-                    Nenhum dado disponível
-                  </p>
+                  <p className="text-center text-muted-foreground">Nenhum dado disponível</p>
                 )}
               </CardContent>
             </Card>
@@ -588,6 +644,5 @@ export default function WorkerDashboard() {
         </Tabs>
       </div>
     </div>
-  )
+  );
 }
-
