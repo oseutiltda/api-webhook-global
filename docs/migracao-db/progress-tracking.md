@@ -16,6 +16,19 @@
 
 - Checkpoint: `F5.2.10-seed-admin-docker-e-validacao-front-back`
 - Resultado:
+  - script de validacao de Contas a Pagar criado na raiz:
+    - `smoke-contas-pagar.sh`
+    - cobre `POST /api/ContasPagar/InserirContasPagar`, `POST /webhooks/faturas/pagar/criar` e duplicate por `x-event-id`
+    - gera payloads em arquivo temporario com IDs/eventId unicos para evitar erro de JSON quebrado no shell
+    - inclui timeout de rede e resumo final de `PASS/FAIL`
+  - documento de preparacao para reuniao SAP criado:
+    - `docs/integracao-sap/roteiro-reuniao.md` com mini plano tecnico de integracao worker -> SAP
+    - inclui: arquitetura alvo, flags por dominio, ordem de rollout, fluxo de referencia e checklist
+    - inclui 20 perguntas objetivas para fechamento tecnico com o time SAP (contrato, idempotencia, erros, baixa, cancelamento, GNRE e reconciliacao)
+  - alinhamento estratégico documentado em `CODEX.md`:
+    - ponto crucial do projeto definido: com `worker` ativo, processamento segue no banco local e a integração alvo passa a ser SAP
+    - integração SQL Server/Senior mantida apenas como legado transitório, com substituição progressiva por adaptadores SAP
+    - inclusão de diretriz de flag alvo `ENABLE_SAP_INTEGRATION` para ativação controlada por domínio
   - hotfix de estabilidade em producao (modo somente recebimento, worker desligado):
     - `ensureIdempotency` agora normaliza `eventId` para string (aceita `id` numerico sem quebrar Prisma)
     - `ensureIdempotency` trata ausencia da tabela `WebhookEvent` (`P2021`) com bypass temporario e log estruturado, evitando travamento/timeout em `/webhooks/*`
