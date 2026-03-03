@@ -8,7 +8,7 @@
 
 ## Estado atual
 
-- Data da ultima atualizacao: 2026-03-02
+- Data da ultima atualizacao: 2026-03-03
 - Fase atual: Fase 5 (migracao por dominio) - etapa 5.2/5.3 em andamento
 - Status geral: em andamento
 
@@ -16,6 +16,12 @@
 
 - Checkpoint: `F5.2.10-seed-admin-docker-e-validacao-front-back`
 - Resultado:
+  - hotfix de estabilidade em producao (modo somente recebimento, worker desligado):
+    - `ensureIdempotency` agora normaliza `eventId` para string (aceita `id` numerico sem quebrar Prisma)
+    - `ensureIdempotency` trata ausencia da tabela `WebhookEvent` (`P2021`) com bypass temporario e log estruturado, evitando travamento/timeout em `/webhooks/*`
+    - `ensureIdempotency` trata erro nao mapeado com resposta `500` controlada (sem `Unhandled Rejection`)
+    - `/api/health` passa a marcar worker como `unknown` quando `WebhookEvent` nao existe (em vez de `offline`), evitando falso negativo sistemico
+    - `smoke-prod.sh` recebeu timeout de conexao/resposta para diagnostico deterministico em producao
   - dominio Pessoa com sub-lotes 5.1.1/5.1.2/5.1.3 aplicados (bypass + leituras locais + gravacao minima)
   - iniciado hardening de CTe no worker com guard explicito para bloquear fluxo SQL Server legado em PostgreSQL
   - leituras de CTe em `cteSync` migradas para Prisma no modo PostgreSQL (pendentes/cancelados)
@@ -97,6 +103,9 @@
     - `dev.sh` agora tenta matar automaticamente listeners em `3000/3001` do mesmo usuario antes de abortar por porta ocupada
     - `backend/src/server.ts` atualizado para respeitar `HOST` (fallback `0.0.0.0`)
 - Evidencias:
+  - `backend/src/middleware/auth.ts`
+  - `backend/src/routes/dashboard.ts`
+  - `smoke-prod.sh`
   - `docs/migracao-db/fase-5-1-pessoa-primeiro-lote.md`
   - `docs/migracao-db/fase-5-2-cte-primeiro-lote.md`
   - `docs/migracao-db/fase-5-3-ciot-primeiro-lote.md`

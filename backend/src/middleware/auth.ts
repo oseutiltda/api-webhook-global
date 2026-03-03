@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { logger } from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -36,13 +37,50 @@ export function verifyWebhookSecret(req: Request, res: Response, next: NextFunct
 }
 
 export async function ensureIdempotency(req: Request, res: Response, next: NextFunction) {
-  const eventId = (req.body && (req.body.id || req.headers['x-event-id'])) as string | undefined;
+  const eventIdRaw = (req.body && (req.body.id || req.headers['x-event-id'])) as
+    | string
+    | number
+    | undefined;
+  const eventId = eventIdRaw !== undefined && eventIdRaw !== null ? String(eventIdRaw).trim() : '';
   if (!eventId) return res.status(400).json({ error: 'Id do evento ausente' });
   const source = (req.path || 'unknown').slice(0, 190);
-  const exists = await prisma.webhookEvent.findUnique({ where: { id: eventId } }).catch(() => null);
-  if (exists) return res.status(200).json({ status: 'duplicate_ignored' });
-  await prisma.webhookEvent.create({ data: { id: eventId, source } });
-  return next();
+
+  const isMissingWebhookEventTable = (error: any): boolean => {
+    if (error?.code !== 'P2021') return false;
+    const table = String(error?.meta?.table || '');
+    return table.includes('WebhookEvent');
+  };
+
+  try {
+    const exists = await prisma.webhookEvent.findUnique({ where: { id: eventId } });
+    if (exists) return res.status(200).json({ status: 'duplicate_ignored' });
+
+    try {
+      await prisma.webhookEvent.create({ data: { id: eventId, source } });
+    } catch (createError: any) {
+      if (createError?.code === 'P2002') {
+        return res.status(200).json({ status: 'duplicate_ignored' });
+      }
+      throw createError;
+    }
+
+    return next();
+  } catch (error: any) {
+    // Hotfix de migração: não bloquear webhook quando a tabela de tracking não existir.
+    if (isMissingWebhookEventTable(error)) {
+      logger.warn(
+        { eventId, source, error: error?.message },
+        'Tabela WebhookEvent ausente; idempotência em bypass temporário',
+      );
+      return next();
+    }
+
+    logger.error(
+      { eventId, source, error: error?.message },
+      'Falha ao verificar idempotência do webhook',
+    );
+    return res.status(500).json({ error: 'Falha ao validar idempotência' });
+  }
 }
 
 export function verifyNfseToken(req: Request, res: Response, next: NextFunction) {

@@ -196,10 +196,17 @@ router.get('/health', async (_req, res) => {
     }
     healthStatus.services.worker.responseTimeMs = Date.now() - workerStartTime;
   } catch (error: any) {
-    healthStatus.services.worker.status = 'offline';
-    healthStatus.services.worker.responseTimeMs = Date.now() - workerStartTime;
-    healthStatus.services.worker.error = error?.message || 'Erro ao verificar status do worker';
-    logger.error({ error: error.message }, 'Erro ao verificar saúde do worker');
+    if (isMissingWebhookEventTable(error)) {
+      healthStatus.services.worker.status = 'unknown';
+      healthStatus.services.worker.error = null;
+      healthStatus.services.worker.responseTimeMs = Date.now() - workerStartTime;
+      logger.info('Tabela WebhookEvent não existe ainda; worker health em modo desconhecido');
+    } else {
+      healthStatus.services.worker.status = 'offline';
+      healthStatus.services.worker.responseTimeMs = Date.now() - workerStartTime;
+      healthStatus.services.worker.error = error?.message || 'Erro ao verificar status do worker';
+      logger.error({ error: error.message }, 'Erro ao verificar saúde do worker');
+    }
   }
 
   // Backend sempre online se chegou aqui

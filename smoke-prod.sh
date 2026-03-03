@@ -28,9 +28,9 @@ run_test() {
   tmp_hdr="$(mktemp)"
 
   if [[ "$method" == "GET" ]]; then
-    code="$(curl -sS -o "$tmp_body" -D "$tmp_hdr" -w "%{http_code}" "$url")"
+    code="$(curl -sS --connect-timeout 5 --max-time 20 -o "$tmp_body" -D "$tmp_hdr" -w "%{http_code}" "$url")"
   else
-    code="$(curl -sS -o "$tmp_body" -D "$tmp_hdr" -w "%{http_code}" -X "$method" "${headers[@]}" "$url" -d "$data")"
+    code="$(curl -sS --connect-timeout 5 --max-time 20 -o "$tmp_body" -D "$tmp_hdr" -w "%{http_code}" -X "$method" "${headers[@]}" "$url" -d "$data")"
   fi
 
   if [[ "$code" =~ ^($expected_regex)$ ]]; then
