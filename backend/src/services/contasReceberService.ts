@@ -2,8 +2,11 @@ import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import type { ContasReceber, Installments, InvoiceItems } from '../schemas/contasReceber';
 import { createOrUpdateWebhookEvent } from '../utils/webhookEvent';
+import { env } from '../config/env';
 
 const prisma = new PrismaClient();
+const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
+const LEGACY_DISABLED = !env.ENABLE_SENIOR_INTEGRATION;
 
 // Helper para converter valores para SQL
 const toSqlValue = (value: any): string => {
@@ -44,7 +47,7 @@ const toSqlDecimal = (value: number | null | undefined): string => {
 export async function inserirFilial(
   contasReceber: ContasReceber,
   tabelasInseridas: string[],
-  tabelasFalhadas: Array<{ tabela: string; erro: string }>
+  tabelasFalhadas: Array<{ tabela: string; erro: string }>,
 ): Promise<number> {
   try {
     if (!contasReceber.data.corporation) {
@@ -90,11 +93,17 @@ export async function inserirFilial(
         return id;
       }
     }
-    tabelasFalhadas.push({ tabela: 'Corporation (Filial)', erro: 'Stored procedure não retornou ID válido' });
+    tabelasFalhadas.push({
+      tabela: 'Corporation (Filial)',
+      erro: 'Stored procedure não retornou ID válido',
+    });
     return 0;
   } catch (error: any) {
     logger.error({ error: error.message }, 'Erro ao inserir filial');
-    tabelasFalhadas.push({ tabela: 'Corporation (Filial)', erro: error.message || 'Erro desconhecido' });
+    tabelasFalhadas.push({
+      tabela: 'Corporation (Filial)',
+      erro: error.message || 'Erro desconhecido',
+    });
     return 0;
   }
 }
@@ -105,7 +114,7 @@ export async function inserirFilial(
 export async function inserirCliente(
   contasReceber: ContasReceber,
   tabelasInseridas: string[],
-  tabelasFalhadas: Array<{ tabela: string; erro: string }>
+  tabelasFalhadas: Array<{ tabela: string; erro: string }>,
 ): Promise<number> {
   try {
     if (!contasReceber.data.customer) {
@@ -155,11 +164,17 @@ export async function inserirCliente(
         return id;
       }
     }
-    tabelasFalhadas.push({ tabela: 'Customer (Cliente)', erro: 'Stored procedure não retornou ID válido' });
+    tabelasFalhadas.push({
+      tabela: 'Customer (Cliente)',
+      erro: 'Stored procedure não retornou ID válido',
+    });
     return 0;
   } catch (error: any) {
     logger.error({ error: error.message }, 'Erro ao inserir cliente');
-    tabelasFalhadas.push({ tabela: 'Customer (Cliente)', erro: error.message || 'Erro desconhecido' });
+    tabelasFalhadas.push({
+      tabela: 'Customer (Cliente)',
+      erro: error.message || 'Erro desconhecido',
+    });
     return 0;
   }
 }
@@ -170,7 +185,7 @@ export async function inserirCliente(
 export async function inserirContaContabil(
   contasReceber: ContasReceber,
   tabelasInseridas: string[],
-  tabelasFalhadas: Array<{ tabela: string; erro: string }>
+  tabelasFalhadas: Array<{ tabela: string; erro: string }>,
 ): Promise<number> {
   try {
     if (!contasReceber.data.accounting_planning_management) {
@@ -217,11 +232,17 @@ export async function inserirContaContabil(
         return id;
       }
     }
-    tabelasFalhadas.push({ tabela: 'Accounting Planning Management (Conta Contábil)', erro: 'Stored procedure não retornou ID válido' });
+    tabelasFalhadas.push({
+      tabela: 'Accounting Planning Management (Conta Contábil)',
+      erro: 'Stored procedure não retornou ID válido',
+    });
     return 0;
   } catch (error: any) {
     logger.error({ error: error.message }, 'Erro ao inserir conta contábil');
-    tabelasFalhadas.push({ tabela: 'Accounting Planning Management (Conta Contábil)', erro: error.message || 'Erro desconhecido' });
+    tabelasFalhadas.push({
+      tabela: 'Accounting Planning Management (Conta Contábil)',
+      erro: error.message || 'Erro desconhecido',
+    });
     return 0;
   }
 }
@@ -231,7 +252,7 @@ export async function inserirContaContabil(
  */
 const verificarFaturaExistente = async (
   external_id: number,
-  document: string | null
+  document: string | null,
 ): Promise<{ id: number; external_id: number } | null> => {
   try {
     const whereClauses: string[] = [];
@@ -241,17 +262,17 @@ const verificarFaturaExistente = async (
     if (document) {
       whereClauses.push(`document = ${toSqlValue(document)}`);
     }
-    
+
     if (whereClauses.length === 0) {
       return null;
     }
-    
+
     const sql = `
       SELECT TOP 1 Id, external_id
       FROM dbo.credit_invoices WITH (NOLOCK)
       WHERE ${whereClauses.join(' OR ')}
     `;
-    
+
     const result = await prisma.$queryRawUnsafe<Array<{ Id: number; external_id: number }>>(sql);
     if (result && result.length > 0 && result[0]?.Id) {
       return {
@@ -261,7 +282,10 @@ const verificarFaturaExistente = async (
     }
     return null;
   } catch (error: any) {
-    logger.warn({ error: error.message, external_id, document }, 'Erro ao verificar fatura existente');
+    logger.warn(
+      { error: error.message, external_id, document },
+      'Erro ao verificar fatura existente',
+    );
     return null;
   }
 };
@@ -276,7 +300,7 @@ const atualizarFatura = async (
   idCliente: number,
   idContaContabil: number,
   tabelasInseridas: string[],
-  tabelasFalhadas: Array<{ tabela: string; erro: string }>
+  tabelasFalhadas: Array<{ tabela: string; erro: string }>,
 ): Promise<void> => {
   try {
     const installmentCount = contasReceber.installment_count ?? 0;
@@ -301,14 +325,25 @@ const atualizarFatura = async (
     `;
 
     await prisma.$executeRawUnsafe(sql);
-    logger.info({ idFatura, document: contasReceber.data.document }, 'Fatura atualizada com sucesso');
+    logger.info(
+      { idFatura, document: contasReceber.data.document },
+      'Fatura atualizada com sucesso',
+    );
     if (!tabelasInseridas.includes('Credit Invoice (Fatura Principal)')) {
       tabelasInseridas.push('Credit Invoice (Fatura Principal)');
     }
   } catch (error: any) {
     logger.error({ error: error.message, idFatura }, 'Erro ao atualizar fatura');
-    if (!tabelasFalhadas.some(t => t.tabela === 'Credit Invoice (Fatura Principal)' && t.erro.includes(`Fatura ${idFatura}`))) {
-      tabelasFalhadas.push({ tabela: 'Credit Invoice (Fatura Principal)', erro: `Fatura ${idFatura}: ${error.message || 'Erro desconhecido'}` });
+    if (
+      !tabelasFalhadas.some(
+        (t) =>
+          t.tabela === 'Credit Invoice (Fatura Principal)' && t.erro.includes(`Fatura ${idFatura}`),
+      )
+    ) {
+      tabelasFalhadas.push({
+        tabela: 'Credit Invoice (Fatura Principal)',
+        erro: `Fatura ${idFatura}: ${error.message || 'Erro desconhecido'}`,
+      });
     }
     throw error;
   }
@@ -323,7 +358,7 @@ export async function inserirFatura(
   idCliente: number,
   idContaContabil: number,
   tabelasInseridas: string[],
-  tabelasFalhadas: Array<{ tabela: string; erro: string }>
+  tabelasFalhadas: Array<{ tabela: string; erro: string }>,
 ): Promise<number> {
   try {
     const installmentCount = contasReceber.installment_count ?? 0;
@@ -374,11 +409,17 @@ export async function inserirFatura(
         return id;
       }
     }
-    tabelasFalhadas.push({ tabela: 'Credit Invoice (Fatura Principal)', erro: 'Stored procedure não retornou ID válido' });
+    tabelasFalhadas.push({
+      tabela: 'Credit Invoice (Fatura Principal)',
+      erro: 'Stored procedure não retornou ID válido',
+    });
     return 0;
   } catch (error: any) {
     logger.error({ error: error.message }, 'Erro ao inserir fatura');
-    tabelasFalhadas.push({ tabela: 'Credit Invoice (Fatura Principal)', erro: error.message || 'Erro desconhecido' });
+    tabelasFalhadas.push({
+      tabela: 'Credit Invoice (Fatura Principal)',
+      erro: error.message || 'Erro desconhecido',
+    });
     return 0;
   }
 }
@@ -390,7 +431,7 @@ export async function inserirParcela(
   parcela: Installments,
   idFatura: number,
   tabelasInseridas: string[],
-  tabelasFalhadas: Array<{ tabela: string; erro: string }>
+  tabelasFalhadas: Array<{ tabela: string; erro: string }>,
 ): Promise<number> {
   try {
     const sql = `
@@ -439,14 +480,29 @@ export async function inserirParcela(
         return id;
       }
     }
-    if (!tabelasFalhadas.some(t => t.tabela === 'Credit Installments (Parcelas)')) {
-      tabelasFalhadas.push({ tabela: 'Credit Installments (Parcelas)', erro: `Parcela ID ${parcela.id}: Stored procedure não retornou ID válido` });
+    if (!tabelasFalhadas.some((t) => t.tabela === 'Credit Installments (Parcelas)')) {
+      tabelasFalhadas.push({
+        tabela: 'Credit Installments (Parcelas)',
+        erro: `Parcela ID ${parcela.id}: Stored procedure não retornou ID válido`,
+      });
     }
     return 0;
   } catch (error: any) {
-    logger.error({ error: error.message, parcelaId: parcela.id, idFatura }, 'Erro ao inserir parcela');
-    if (!tabelasFalhadas.some(t => t.tabela === 'Credit Installments (Parcelas)' && t.erro.includes(`Parcela ID ${parcela.id}`))) {
-      tabelasFalhadas.push({ tabela: 'Credit Installments (Parcelas)', erro: `Parcela ID ${parcela.id}: ${error.message || 'Erro desconhecido'}` });
+    logger.error(
+      { error: error.message, parcelaId: parcela.id, idFatura },
+      'Erro ao inserir parcela',
+    );
+    if (
+      !tabelasFalhadas.some(
+        (t) =>
+          t.tabela === 'Credit Installments (Parcelas)' &&
+          t.erro.includes(`Parcela ID ${parcela.id}`),
+      )
+    ) {
+      tabelasFalhadas.push({
+        tabela: 'Credit Installments (Parcelas)',
+        erro: `Parcela ID ${parcela.id}: ${error.message || 'Erro desconhecido'}`,
+      });
     }
     return 0;
   }
@@ -459,7 +515,7 @@ export async function inserirParcelaGerenciamento(
   contasReceber: ContasReceber,
   idParcela: number,
   tabelasInseridas: string[],
-  tabelasFalhadas: Array<{ tabela: string; erro: string }>
+  tabelasFalhadas: Array<{ tabela: string; erro: string }>,
 ): Promise<void> {
   try {
     if (!contasReceber.data.accounting_planning_management) {
@@ -487,12 +543,18 @@ export async function inserirParcelaGerenciamento(
       tabelasInseridas.push('Credit Planning Management (Parcela Gerenciamento)');
     }
   } catch (error: any) {
-    logger.error(
-      { error: error.message, idParcela },
-      'Erro ao inserir parcela gerenciamento'
-    );
-    if (!tabelasFalhadas.some(t => t.tabela === 'Credit Planning Management (Parcela Gerenciamento)' && t.erro.includes(`Parcela ${idParcela}`))) {
-      tabelasFalhadas.push({ tabela: 'Credit Planning Management (Parcela Gerenciamento)', erro: `Parcela ${idParcela}: ${error.message || 'Erro desconhecido'}` });
+    logger.error({ error: error.message, idParcela }, 'Erro ao inserir parcela gerenciamento');
+    if (
+      !tabelasFalhadas.some(
+        (t) =>
+          t.tabela === 'Credit Planning Management (Parcela Gerenciamento)' &&
+          t.erro.includes(`Parcela ${idParcela}`),
+      )
+    ) {
+      tabelasFalhadas.push({
+        tabela: 'Credit Planning Management (Parcela Gerenciamento)',
+        erro: `Parcela ${idParcela}: ${error.message || 'Erro desconhecido'}`,
+      });
     }
     // Não throw aqui, apenas loga o erro
   }
@@ -505,7 +567,7 @@ export async function inserirFaturaItem(
   item: InvoiceItems,
   idFatura: number,
   tabelasInseridas: string[],
-  tabelasFalhadas: Array<{ tabela: string; erro: string }>
+  tabelasFalhadas: Array<{ tabela: string; erro: string }>,
 ): Promise<void> {
   try {
     const total = item.total ?? 0;
@@ -531,9 +593,20 @@ export async function inserirFaturaItem(
       tabelasInseridas.push('Invoice Items (Itens da Fatura)');
     }
   } catch (error: any) {
-    logger.error({ error: error.message, itemId: item.id, idFatura }, 'Erro ao inserir item da fatura');
-    if (!tabelasFalhadas.some(t => t.tabela === 'Invoice Items (Itens da Fatura)' && t.erro.includes(`Item ID ${item.id}`))) {
-      tabelasFalhadas.push({ tabela: 'Invoice Items (Itens da Fatura)', erro: `Item ID ${item.id}: ${error.message || 'Erro desconhecido'}` });
+    logger.error(
+      { error: error.message, itemId: item.id, idFatura },
+      'Erro ao inserir item da fatura',
+    );
+    if (
+      !tabelasFalhadas.some(
+        (t) =>
+          t.tabela === 'Invoice Items (Itens da Fatura)' && t.erro.includes(`Item ID ${item.id}`),
+      )
+    ) {
+      tabelasFalhadas.push({
+        tabela: 'Invoice Items (Itens da Fatura)',
+        erro: `Item ID ${item.id}: ${error.message || 'Erro desconhecido'}`,
+      });
     }
     // Não throw aqui, apenas loga o erro
   }
@@ -561,7 +634,7 @@ export async function cancelarContasReceber(contasReceber: ContasReceber): Promi
   } catch (error: any) {
     logger.error(
       { error: error.message, document: contasReceber.data.document },
-      'Erro ao cancelar conta a receber'
+      'Erro ao cancelar conta a receber',
     );
     throw error;
   }
@@ -573,7 +646,7 @@ export async function cancelarContasReceber(contasReceber: ContasReceber): Promi
 export async function inserirContasReceber(
   contasReceber: ContasReceber,
   eventId?: string | null,
-  startTime?: number
+  startTime?: number,
 ): Promise<{ status: boolean; mensagem: string; idFatura?: number; created?: boolean }> {
   // Rastreamento de tabelas inseridas e falhadas
   const tabelasInseridas: string[] = [];
@@ -588,12 +661,155 @@ export async function inserirContasReceber(
       };
     }
 
+    // Migração Global: no modo PostgreSQL sem legado, persistir localmente e não executar SQL Server/Senior.
+    if (IS_POSTGRES && LEGACY_DISABLED) {
+      const faturaId = String(contasReceber.data.id);
+      const numero = contasReceber.data.document || `CR-${faturaId}`;
+      const emissao = contasReceber.data.issue_date || new Date().toISOString().slice(0, 10);
+      const valor = Number(contasReceber.data.value || 0);
+      const clienteCnpj =
+        contasReceber.data.customer?.cnpj || contasReceber.data.corporation?.cnpj || '';
+
+      if (contasReceber.data.cancelado === 1) {
+        logger.info(
+          {
+            faturaId,
+            document: numero,
+            motivo: 'postgres_local_sem_legacy',
+          },
+          'Conta a receber marcada como cancelada em modo local (sem integração legada)',
+        );
+
+        if (eventId) {
+          await createOrUpdateWebhookEvent(
+            eventId,
+            '/api/ContasReceber/InserirContasReceber',
+            'processed',
+            null,
+            {
+              integrationStatus: 'canceled',
+              integrationMode: 'postgres_local_sem_legacy',
+              document: numero,
+              id: contasReceber.data.id,
+            },
+          );
+        }
+
+        return {
+          status: true,
+          mensagem: 'Conta a receber cancelada com sucesso! (modo local)',
+          idFatura: contasReceber.data.id,
+          created: false,
+        };
+      }
+
+      if (contasReceber.data.cancelado !== 0 && contasReceber.data.cancelado !== undefined) {
+        return {
+          status: false,
+          mensagem: 'Valor de cancelado inválido. Use 0 para inserir ou 1 para cancelar.',
+        };
+      }
+
+      const existente = await prisma.faturaReceber.findUnique({ where: { id: faturaId } });
+      const created = !existente;
+
+      await prisma.$transaction(async (tx) => {
+        await tx.faturaReceber.upsert({
+          where: { id: faturaId },
+          update: {
+            clienteCnpj,
+            numero,
+            emissao,
+            valor,
+          },
+          create: {
+            id: faturaId,
+            clienteCnpj,
+            numero,
+            emissao,
+            valor,
+          },
+        });
+
+        await tx.faturaReceberParcela.deleteMany({ where: { faturaId } });
+        if (contasReceber.data.installments && contasReceber.data.installments.length > 0) {
+          await tx.faturaReceberParcela.createMany({
+            data: contasReceber.data.installments.map((p, index) => ({
+              faturaId,
+              posicao: p.position ?? index + 1,
+              dueDate: p.due_date || emissao,
+              valor: Number(p.value || 0),
+              interestValue: p.interest_value !== undefined ? Number(p.interest_value) : null,
+              discountValue: p.discount_value !== undefined ? Number(p.discount_value) : null,
+              paymentMethod: p.payment_method || null,
+              comments: p.comments || null,
+              installmentId: p.id,
+            })),
+          });
+        }
+
+        await tx.faturaReceberItem.deleteMany({ where: { faturaId } });
+        if (contasReceber.data.invoice_items && contasReceber.data.invoice_items.length > 0) {
+          await tx.faturaReceberItem.createMany({
+            data: contasReceber.data.invoice_items.map((item) => ({
+              faturaId,
+              cteKey: item.cte_key || null,
+              cteNumber: item.cte_number !== undefined ? String(item.cte_number) : null,
+              cteSeries: item.cte_series !== undefined ? String(item.cte_series) : null,
+              payerName: item.payer_name || null,
+              draftNumber: item.draft_number || null,
+              nfseNumber: item.nfse_number || null,
+              nfseSeries: item.nfse_series || null,
+              total: item.total !== undefined ? Number(item.total) : null,
+              type: item.type || null,
+            })),
+          });
+        }
+      });
+
+      if (eventId) {
+        await createOrUpdateWebhookEvent(
+          eventId,
+          '/api/ContasReceber/InserirContasReceber',
+          'processed',
+          null,
+          {
+            integrationStatus: 'integrated',
+            integrationMode: 'postgres_local_sem_legacy',
+            document: numero,
+            id: contasReceber.data.id,
+            idFatura: contasReceber.data.id,
+            created,
+          },
+        );
+      }
+
+      logger.info(
+        {
+          faturaId,
+          document: numero,
+          created,
+          motivo: 'postgres_local_sem_legacy',
+        },
+        'Contas a receber persistida localmente em PostgreSQL',
+      );
+
+      return {
+        status: true,
+        mensagem: created
+          ? 'Registro criado com sucesso! (modo local)'
+          : 'Registro atualizado com sucesso! (modo local)',
+        idFatura: contasReceber.data.id,
+        created,
+      };
+    }
+
     // Se cancelado == 1, apenas cancela
     if (contasReceber.data.cancelado === 1) {
       try {
         await cancelarContasReceber(contasReceber);
         tabelasInseridas.push('Cancelamento');
-        
+
         // Atualizar evento WebhookEvent
         if (eventId) {
           await createOrUpdateWebhookEvent(
@@ -610,8 +826,8 @@ export async function inserirContasReceber(
                 totalTabelas: tabelasInseridas.length,
                 sucesso: tabelasInseridas.length,
                 falhas: 0,
-              }
-            }
+              },
+            },
           );
         }
 
@@ -622,8 +838,11 @@ export async function inserirContasReceber(
         };
       } catch (error: any) {
         logger.error({ error: error.message }, 'Erro ao cancelar conta a receber');
-        tabelasFalhadas.push({ tabela: 'Cancelamento', erro: error.message || 'Erro desconhecido' });
-        
+        tabelasFalhadas.push({
+          tabela: 'Cancelamento',
+          erro: error.message || 'Erro desconhecido',
+        });
+
         if (eventId) {
           await createOrUpdateWebhookEvent(
             eventId,
@@ -635,10 +854,10 @@ export async function inserirContasReceber(
               document: contasReceber.data.document,
               id: contasReceber.data.id,
               tabelasFalhadas: tabelasFalhadas,
-            }
+            },
           );
         }
-        
+
         return {
           status: false,
           mensagem: 'Erro ao cancelar conta a receber',
@@ -657,7 +876,7 @@ export async function inserirContasReceber(
     // Verificar se fatura já existe
     const faturaExistente = await verificarFaturaExistente(
       contasReceber.data.id,
-      contasReceber.data.document || null
+      contasReceber.data.document || null,
     );
 
     let isUpdate = false;
@@ -675,7 +894,11 @@ export async function inserirContasReceber(
     }
 
     // Inserir Conta Contábil
-    const idContaContabil = await inserirContaContabil(contasReceber, tabelasInseridas, tabelasFalhadas);
+    const idContaContabil = await inserirContaContabil(
+      contasReceber,
+      tabelasInseridas,
+      tabelasFalhadas,
+    );
     if (idContaContabil <= 0) {
       logger.warn('Falha ao inserir conta contábil');
     }
@@ -691,12 +914,12 @@ export async function inserirContasReceber(
           external_id: faturaExistente.external_id,
           document: contasReceber.data.document,
         },
-        'Fatura já existe na tabela destino, realizando UPDATE'
+        'Fatura já existe na tabela destino, realizando UPDATE',
       );
-      
+
       idFatura = faturaExistente.id;
       isUpdate = true;
-      
+
       // Atualizar fatura
       await atualizarFatura(
         contasReceber,
@@ -705,7 +928,7 @@ export async function inserirContasReceber(
         idCliente,
         idContaContabil,
         tabelasInseridas,
-        tabelasFalhadas
+        tabelasFalhadas,
       );
 
       // Deletar registros relacionados na ordem correta (respeitando foreign keys)
@@ -719,17 +942,28 @@ export async function inserirContasReceber(
           INNER JOIN dbo.credit_installments ci ON cpm.credit_installment_id = ci.Id
           WHERE ci.credit_invoice_id = ${idFatura};
         `);
-        logger.debug({ idFatura }, 'Gerenciamentos de parcelas antigos deletados da tabela credit_planning_managements');
+        logger.debug(
+          { idFatura },
+          'Gerenciamentos de parcelas antigos deletados da tabela credit_planning_managements',
+        );
       } catch (deleteError: any) {
-        logger.warn({ error: deleteError.message, idFatura }, 'Erro ao deletar gerenciamentos de parcelas antigos (não crítico)');
+        logger.warn(
+          { error: deleteError.message, idFatura },
+          'Erro ao deletar gerenciamentos de parcelas antigos (não crítico)',
+        );
       }
 
       // 2. Deletar parcelas antigas para reinserir com os novos dados (após deletar gerenciamentos)
       try {
-        await prisma.$executeRawUnsafe(`DELETE FROM dbo.credit_installments WHERE credit_invoice_id = ${idFatura};`);
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM dbo.credit_installments WHERE credit_invoice_id = ${idFatura};`,
+        );
         logger.debug({ idFatura }, 'Parcelas antigas deletadas da tabela credit_installments');
       } catch (deleteError: any) {
-        logger.warn({ error: deleteError.message, idFatura }, 'Erro ao deletar parcelas antigas (não crítico)');
+        logger.warn(
+          { error: deleteError.message, idFatura },
+          'Erro ao deletar parcelas antigas (não crítico)',
+        );
       }
 
       // 3. Deletar itens existentes para reinserir
@@ -738,36 +972,56 @@ export async function inserirContasReceber(
       try {
         // Tentar com nome de tabela que pode estar no banco (credit_invoice_items ou invoice_items)
         try {
-          await prisma.$executeRawUnsafe(`DELETE FROM dbo.credit_invoice_items WHERE credit_invoice_id = ${idFatura};`);
+          await prisma.$executeRawUnsafe(
+            `DELETE FROM dbo.credit_invoice_items WHERE credit_invoice_id = ${idFatura};`,
+          );
           logger.debug({ idFatura }, 'Itens antigos deletados da tabela credit_invoice_items');
         } catch (e: any) {
           // Se falhar, tentar outro nome possível
-          await prisma.$executeRawUnsafe(`DELETE FROM dbo.invoice_items WHERE credit_invoice_id = ${idFatura};`);
+          await prisma.$executeRawUnsafe(
+            `DELETE FROM dbo.invoice_items WHERE credit_invoice_id = ${idFatura};`,
+          );
           logger.debug({ idFatura }, 'Itens antigos deletados da tabela invoice_items');
         }
       } catch (deleteError: any) {
         // Se ambos falharem, apenas logar como warning (não crítico, os itens serão reinseridos)
-        logger.warn({ error: deleteError.message, idFatura }, 'Erro ao deletar itens antigos (não crítico - itens serão reinseridos)');
+        logger.warn(
+          { error: deleteError.message, idFatura },
+          'Erro ao deletar itens antigos (não crítico - itens serão reinseridos)',
+        );
       }
     } else {
       // Inserir Fatura (nova)
-      idFatura = await inserirFatura(contasReceber, idFilial, idCliente, idContaContabil, tabelasInseridas, tabelasFalhadas);
-      
+      idFatura = await inserirFatura(
+        contasReceber,
+        idFilial,
+        idCliente,
+        idContaContabil,
+        tabelasInseridas,
+        tabelasFalhadas,
+      );
+
       // Garantir que processed = 0 para que o worker processe
       if (idFatura > 0) {
         try {
-          await prisma.$executeRawUnsafe(`UPDATE dbo.credit_invoices SET processed = 0 WHERE Id = ${idFatura}`);
+          await prisma.$executeRawUnsafe(
+            `UPDATE dbo.credit_invoices SET processed = 0 WHERE Id = ${idFatura}`,
+          );
         } catch (e) {
-          logger.warn({ idFatura, error: (e as Error).message }, 'Erro ao forçar processed = 0 após insert');
+          logger.warn(
+            { idFatura, error: (e as Error).message },
+            'Erro ao forçar processed = 0 após insert',
+          );
         }
       }
     }
 
     if (idFatura <= 0) {
-      const mensagemErro = tabelasFalhadas.length > 0
-        ? `Fatura não incluída. ${tabelasFalhadas.map(t => `${t.tabela}: ${t.erro}`).join(', ')}`
-        : 'Fatura não incluída, favor verificar lançamento!';
-      
+      const mensagemErro =
+        tabelasFalhadas.length > 0
+          ? `Fatura não incluída. ${tabelasFalhadas.map((t) => `${t.tabela}: ${t.erro}`).join(', ')}`
+          : 'Fatura não incluída, favor verificar lançamento!';
+
       if (eventId) {
         await createOrUpdateWebhookEvent(
           eventId,
@@ -784,11 +1038,11 @@ export async function inserirContasReceber(
               totalTabelas: tabelasInseridas.length + tabelasFalhadas.length,
               sucesso: tabelasInseridas.length,
               falhas: tabelasFalhadas.length,
-            }
-          }
+            },
+          },
         );
       }
-      
+
       return {
         status: false,
         mensagem: mensagemErro,
@@ -797,8 +1051,19 @@ export async function inserirContasReceber(
 
     // Processar Itens e Parcelas em Background (Assíncrono)
     // Fire-and-forget para não bloquear o retorno do cabeçalho
-    processarItensEParcelas(contasReceber, idFatura, eventId, isUpdate, tabelasInseridas, tabelasFalhadas, startProcessing).catch(err => {
-       logger.error({ eventId, error: err.message }, 'Erro no processamento assíncrono de itens/parcelas (Contas Receber)');
+    processarItensEParcelas(
+      contasReceber,
+      idFatura,
+      eventId,
+      isUpdate,
+      tabelasInseridas,
+      tabelasFalhadas,
+      startProcessing,
+    ).catch((err) => {
+      logger.error(
+        { eventId, error: err.message },
+        'Erro no processamento assíncrono de itens/parcelas (Contas Receber)',
+      );
     });
 
     // Retorno Síncrono Imediato
@@ -808,10 +1073,9 @@ export async function inserirContasReceber(
       idFatura,
       created: !isUpdate,
     };
-
   } catch (error: any) {
     logger.error({ error: error.message, stack: error.stack }, 'Erro ao inserir conta a receber');
-    
+
     // Atualizar evento WebhookEvent com erro
     if (eventId) {
       const mensagemErro = error.message || 'Erro ao inserir conta a receber';
@@ -821,23 +1085,23 @@ export async function inserirContasReceber(
         id: contasReceber.data?.id,
         erro: mensagemErro,
       };
-      
+
       if (tabelasInseridas.length > 0) {
         metadata.tabelasInseridas = tabelasInseridas;
       }
       if (tabelasFalhadas.length > 0) {
         metadata.tabelasFalhadas = tabelasFalhadas;
       }
-      
+
       await createOrUpdateWebhookEvent(
         eventId,
         '/api/ContasReceber/InserirContasReceber',
         'failed',
         mensagemErro,
-        metadata
+        metadata,
       );
     }
-    
+
     return {
       status: false,
       mensagem: 'Registro não inserido, favor verificar log!',
@@ -855,67 +1119,72 @@ async function processarItensEParcelas(
   isUpdate: boolean,
   tabelasInseridas: string[],
   tabelasFalhadas: Array<{ tabela: string; erro: string }>,
-  startProcessing: number
+  startProcessing: number,
 ) {
-    // Inserir Parcelas (se informadas)
-    if (contasReceber.data.installments && contasReceber.data.installments.length > 0) {
-      for (const parcela of contasReceber.data.installments) {
-        const idParcela = await inserirParcela(parcela, idFatura, tabelasInseridas, tabelasFalhadas);
-        if (idParcela > 0) {
-          // Inserir Parcela Gerenciamento para cada parcela
-          await inserirParcelaGerenciamento(contasReceber, idParcela, tabelasInseridas, tabelasFalhadas);
-        }
+  // Inserir Parcelas (se informadas)
+  if (contasReceber.data.installments && contasReceber.data.installments.length > 0) {
+    for (const parcela of contasReceber.data.installments) {
+      const idParcela = await inserirParcela(parcela, idFatura, tabelasInseridas, tabelasFalhadas);
+      if (idParcela > 0) {
+        // Inserir Parcela Gerenciamento para cada parcela
+        await inserirParcelaGerenciamento(
+          contasReceber,
+          idParcela,
+          tabelasInseridas,
+          tabelasFalhadas,
+        );
       }
     }
+  }
 
-    // Inserir Itens da Fatura (se informados)
-    if (contasReceber.data.invoice_items && contasReceber.data.invoice_items.length > 0) {
-      for (const item of contasReceber.data.invoice_items) {
-        await inserirFaturaItem(item, idFatura, tabelasInseridas, tabelasFalhadas);
-      }
+  // Inserir Itens da Fatura (se informados)
+  if (contasReceber.data.invoice_items && contasReceber.data.invoice_items.length > 0) {
+    for (const item of contasReceber.data.invoice_items) {
+      await inserirFaturaItem(item, idFatura, tabelasInseridas, tabelasFalhadas);
     }
+  }
 
-    // Atualizar evento WebhookEvent com informações detalhadas das tabelas
-    if (eventId) {
-      const temFalhas = tabelasFalhadas.length > 0;
-      
-      let mensagemErro: string | null = null;
-      if (temFalhas) {
-        const tabelasOk = tabelasInseridas.length > 0 
+  // Atualizar evento WebhookEvent com informações detalhadas das tabelas
+  if (eventId) {
+    const temFalhas = tabelasFalhadas.length > 0;
+
+    let mensagemErro: string | null = null;
+    if (temFalhas) {
+      const tabelasOk =
+        tabelasInseridas.length > 0
           ? `Tabelas inseridas/atualizadas com sucesso: ${tabelasInseridas.join(', ')}. `
           : '';
-        const tabelasErro = `Tabelas com erro: ${tabelasFalhadas.map(t => `${t.tabela} (${t.erro})`).join(', ')}.`;
-        mensagemErro = tabelasOk + tabelasErro;
-      }
-      
-      const metadata: any = {
-        idFatura: idFatura,
-        document: contasReceber.data.document,
-        id: contasReceber.data.id,
-        installmentCount: contasReceber.data.installments?.length || 0,
-        invoiceItemsCount: contasReceber.data.invoice_items?.length || 0,
-        etapa: isUpdate ? 'backend_atualizado' : 'backend_inserido',
-        operacao: isUpdate ? 'UPDATE' : 'INSERT',
-        tabelasInseridas: tabelasInseridas,
-        processingTimeMs: Date.now() - startProcessing,
-        resumo: {
-          totalTabelas: tabelasInseridas.length + tabelasFalhadas.length,
-          sucesso: tabelasInseridas.length,
-          falhas: tabelasFalhadas.length,
-        }
-      };
-      
-      if (temFalhas) {
-        metadata.tabelasFalhadas = tabelasFalhadas;
-      }
-      
-      await createOrUpdateWebhookEvent(
-        eventId,
-        '/api/ContasReceber/InserirContasReceber',
-        'processed',
-        mensagemErro,
-        metadata
-      );
+      const tabelasErro = `Tabelas com erro: ${tabelasFalhadas.map((t) => `${t.tabela} (${t.erro})`).join(', ')}.`;
+      mensagemErro = tabelasOk + tabelasErro;
     }
-}
 
+    const metadata: any = {
+      idFatura: idFatura,
+      document: contasReceber.data.document,
+      id: contasReceber.data.id,
+      installmentCount: contasReceber.data.installments?.length || 0,
+      invoiceItemsCount: contasReceber.data.invoice_items?.length || 0,
+      etapa: isUpdate ? 'backend_atualizado' : 'backend_inserido',
+      operacao: isUpdate ? 'UPDATE' : 'INSERT',
+      tabelasInseridas: tabelasInseridas,
+      processingTimeMs: Date.now() - startProcessing,
+      resumo: {
+        totalTabelas: tabelasInseridas.length + tabelasFalhadas.length,
+        sucesso: tabelasInseridas.length,
+        falhas: tabelasFalhadas.length,
+      },
+    };
+
+    if (temFalhas) {
+      metadata.tabelasFalhadas = tabelasFalhadas;
+    }
+
+    await createOrUpdateWebhookEvent(
+      eventId,
+      '/api/ContasReceber/InserirContasReceber',
+      'processed',
+      mensagemErro,
+      metadata,
+    );
+  }
+}

@@ -9,13 +9,46 @@
 ## Estado atual
 
 - Data da ultima atualizacao: 2026-03-03
-- Fase atual: Fase 5 (migracao por dominio) - etapa 5.2/5.3 em andamento
+- Fase atual: Fase 5 (migracao por dominio) - etapa 5.3/5.4 em andamento
 - Status geral: em andamento
 
 ## Ultimo checkpoint concluido
 
-- Checkpoint: `F5.2.10-seed-admin-docker-e-validacao-front-back`
+- Checkpoint: `F5.4.5-contas-receber-worker-bypass-postgres`
 - Resultado:
+  - `F5.4.5-contas-receber-worker-bypass-postgres` concluido:
+    - `worker/src/services/contasReceberSync.ts` adaptado para caminho PostgreSQL-first quando `ENABLE_SQLSERVER_LEGACY=false`
+    - no modo local, o worker nao executa procedures SQL Server para Contas a Receber e processa pendencias de `WebhookEvent` com sucesso controlado (`integrationStatus=integrated`)
+    - metadata de `WebhookEvent` enriquecida com `workerMode=postgres_local_sem_legacy` e identificacao do servico
+    - caminho legado SQL Server/Senior preservado para cenarios fora do modo local
+  - `worker/src/index.ts` ajustado para executar `CONTAS_RECEBER` tambem no modo PostgreSQL seguro
+  - `F5.4.4-contas-receber-baixa-worker-bypass-postgres` concluido:
+    - `worker/src/services/contasReceberBaixaSync.ts` adaptado para caminho PostgreSQL-first quando `ENABLE_SQLSERVER_LEGACY=false`
+    - no modo local, o worker nao executa procedures SQL Server para CR baixa e processa eventos pendentes de `/api/ContasReceber/InserirContasReceberBaixa` com sucesso controlado (`integrationStatus=integrated`)
+    - metadata de `WebhookEvent` enriquecida com `workerMode=postgres_local_sem_legacy` e identificacao do servico
+    - caminho legado SQL Server/Senior preservado para cenarios fora do modo local
+  - `worker/src/index.ts` ajustado para executar `CONTAS_RECEBER_BAIXA` tambem no modo PostgreSQL seguro (junto aos fluxos ja adaptados)
+  - `F5.4.3-contas-receber-baixa-backend-bypass-postgres` concluido:
+    - `backend/src/services/contasReceberBaixaService.ts` migrado para caminho PostgreSQL-first quando `ENABLE_SENIOR_INTEGRATION=false`
+    - endpoint `POST /api/ContasReceber/InserirContasReceberBaixa` deixa de depender de stored procedure SQL Server no caminho principal local
+    - persistencia local implementada em `FaturaReceberBaixa` com busca da parcela por `installment_id` (`FaturaReceberParcela.installmentId`)
+    - deduplicacao basica aplicada na baixa local (mesma parcela + data + valor retorna sucesso controlado)
+    - caminho legado (SQL Server/Senior) preservado para cenarios fora do modo PostgreSQL local
+  - smoke de baixa de Contas a Receber criado:
+    - `smoke-contas-receber-baixa.sh`
+    - cobre `POST /api/ContasReceber/InserirContasReceber`, `POST /api/ContasReceber/InserirContasReceberBaixa` e webhook de baixa com duplicate (`/webhooks/faturas/receber/baixar`)
+    - payloads gerados em arquivo temporario para evitar JSON quebrado por shell multiline
+    - inclui timeout de rede e resumo final de `PASS/FAIL`
+  - `F5.4.2-contas-receber-backend-bypass-postgres` concluido:
+    - `backend/src/services/contasReceberService.ts` migrado para caminho PostgreSQL-first quando `ENABLE_SENIOR_INTEGRATION=false`
+    - no modo local, persiste em `FaturaReceber`, `FaturaReceberParcela` e `FaturaReceberItem` via Prisma (upsert + substituicao de colecoes)
+    - cancelamento (`cancelado=1`) passa por sucesso controlado local, sem chamada SQL Server/Senior
+    - removida dependencia de SQL Server/stored procedures no caminho principal desse endpoint
+  - `F5.4.1-contas-pagar-backend-bypass-postgres` concluido:
+    - endpoint `POST /api/ContasPagar/InserirContasPagar` migrado para caminho PostgreSQL-first quando `ENABLE_SENIOR_INTEGRATION=false`
+    - persistencia local implementada em `FaturaPagar`, `FaturaPagarParcela` e `FaturaPagarCancelamento` via Prisma
+    - removida dependencia de SQL Server/stored procedures no caminho principal desse endpoint
+    - smoke de Contas a Pagar atualizado para exigir `HTTP 202` no endpoint de API (comportamento esperado apos migracao local)
   - migracao do endpoint `POST /api/ContasPagar/InserirContasPagar` para modo PostgreSQL local aplicada:
     - `backend/src/services/contasPagarService.ts` agora detecta `postgresql://` com legado desativado (`ENABLE_SENIOR_INTEGRATION=false`)
     - no modo local, persiste em `FaturaPagar` e `FaturaPagarParcela` via Prisma (upsert + substituicao de parcelas)
@@ -134,6 +167,11 @@
     - `dev.sh` agora tenta matar automaticamente listeners em `3000/3001` do mesmo usuario antes de abortar por porta ocupada
     - `backend/src/server.ts` atualizado para respeitar `HOST` (fallback `0.0.0.0`)
 - Evidencias:
+  - `worker/src/services/contasReceberSync.ts`
+  - `worker/src/services/contasReceberBaixaSync.ts`
+  - `worker/src/index.ts`
+  - `backend/src/services/contasReceberBaixaService.ts`
+  - `smoke-contas-receber-baixa.sh`
   - `frontend/src/app/page.tsx`
   - `frontend/src/app/worker/page.tsx`
   - `frontend/src/app/worker1/page.tsx`
@@ -156,8 +194,12 @@
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/index.ts worker/src/services/cteSync.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/cteIntegration.ts worker/src/services/cteSync.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/ciotSync.ts` OK
+  - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/contasReceberSync.ts worker/src/index.ts` OK
+  - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/contasReceberBaixaSync.ts worker/src/index.ts` OK
   - `worker`: `npm run typecheck` OK
-  - `worker`: `npm run lint` OK (sem erros)
+  - `worker`: `npm run lint` OK (sem erros; warnings preexistentes)
+  - `backend`: `npm run lint` OK (sem erros; warnings preexistentes)
+  - `backend`: `npm run typecheck` OK
   - `docker compose ps -a`: backend/frontend/postgres ativos e worker parado (exit 0)
   - `docker exec bmx-frontend node -e "fetch('http://backend:3000/health')..."` -> `status=200`
   - `docker exec -i global-postgres psql -U global -d global_integrador -c "SELECT login, role, is_active FROM admin_users;"` -> `admin@admin | ADMIN | t`
@@ -165,13 +207,14 @@
 
 ## Proximo checkpoint
 
-- Checkpoint alvo: `F5.3.2-ciot-backend-bypass-postgres`
+- Checkpoint alvo: `F5.4.6-contas-pagar-worker-bypass-postgres`
 - Objetivo:
-  - manter CTe em modo somente recebimento para testes
-  - avancar CIOT no backend para remover dependencia SQL Server no caminho principal
+  - migrar `worker/src/services/contasPagarSync.ts` para caminho PostgreSQL-first
+  - eliminar dependencia de SQL Server/Senior no processamento principal de Contas a Pagar no worker
 - Criterio de aceite:
-  - endpoints/backlog de CIOT operam sem query SQL Server no modo PostgreSQL
-  - logs de bypass/fallback padronizados para CIOT
+  - worker processa Contas a Pagar pendentes sem chamadas SQL Server no modo local
+  - status/metadata de `WebhookEvent` atualizados com integracao local controlada
+  - validacao por smoke + logs sem erro critico de procedure/objeto SQL Server
 
 ## Checkpoints concluídos (historico resumido)
 

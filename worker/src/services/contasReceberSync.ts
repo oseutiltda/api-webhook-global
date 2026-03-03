@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import { inserirContasReceberSenior } from './contasReceberIntegration';
 import type {
@@ -12,6 +13,8 @@ import type {
 } from '../types/contasReceber';
 
 const CONTAS_RECEBER_BATCH_SIZE = Number(process.env.CONTAS_RECEBER_WORKER_BATCH_SIZE ?? '5');
+const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
+const ENABLE_SQLSERVER_LEGACY = env.ENABLE_SQLSERVER_LEGACY;
 
 const toSqlValue = (value: any): string => {
   if (value === null || value === undefined) return 'NULL';
@@ -218,8 +221,8 @@ const lerDadosContaContabilFatura = async (
  * Lê dados do centro de custo (pode retornar null)
  */
 const lerDadosCentroCustoFatura = async (
-  prisma: PrismaClient,
-  document: string,
+  _prisma: PrismaClient,
+  _document: string,
 ): Promise<CentroCusto | null> => {
   // Para Contas a Receber, centro de custo não é obrigatório
   // Retornar null se não houver procedure específica
@@ -509,10 +512,73 @@ const processarContasReceber = async (prisma: PrismaClient, document: string): P
   }
 };
 
+const processPendingContasReceberPostgres = async (prisma: PrismaClient): Promise<void> => {
+  const pendentes = await prisma.webhookEvent.findMany({
+    where: {
+      source: {
+        in: ['/api/ContasReceber/InserirContasReceber', '/webhooks/faturas/receber/criar'],
+      },
+      status: 'pending',
+    },
+    orderBy: { receivedAt: 'asc' },
+    take: CONTAS_RECEBER_BATCH_SIZE,
+  });
+
+  if (pendentes.length === 0) {
+    logger.debug('Nenhuma conta a receber pendente para processamento local');
+    return;
+  }
+
+  logger.info({ count: pendentes.length }, 'Processando contas a receber em modo PostgreSQL local');
+
+  for (const event of pendentes) {
+    const start = Date.now();
+    const metadataBase =
+      typeof event.metadata === 'string' && event.metadata.trim().length > 0
+        ? (() => {
+            try {
+              return JSON.parse(event.metadata);
+            } catch {
+              return { rawMetadata: event.metadata };
+            }
+          })()
+        : {};
+
+    await prisma.webhookEvent.update({
+      where: { id: event.id },
+      data: {
+        status: 'processed',
+        processedAt: new Date(),
+        integrationStatus: 'integrated',
+        processingTimeMs: Date.now() - start,
+        metadata: JSON.stringify({
+          ...metadataBase,
+          workerMode: 'postgres_local_sem_legacy',
+          workerService: 'contasReceberSync',
+          observacao:
+            'Integracao externa desativada; conta a receber registrada/localmente processada no PostgreSQL.',
+        }).substring(0, 2000),
+      },
+    });
+  }
+};
+
 /**
  * Processa contas a receber pendentes
  */
 export async function processPendingContasReceber(prisma: PrismaClient): Promise<void> {
+  if (IS_POSTGRES && !ENABLE_SQLSERVER_LEGACY) {
+    try {
+      await processPendingContasReceberPostgres(prisma);
+    } catch (error: any) {
+      logger.error(
+        { error: error.message },
+        'Erro ao processar contas a receber em modo PostgreSQL local',
+      );
+    }
+    return;
+  }
+
   try {
     // Verificar se o robô está em execução
     const roboExecutando = await verificarExecucaoRobo(prisma);

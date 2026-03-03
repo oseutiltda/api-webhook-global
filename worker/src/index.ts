@@ -259,6 +259,14 @@ async function processBatch() {
         await processPendingCiot(prisma);
       }
 
+      if (isServiceEnabled('CONTAS_RECEBER')) {
+        await processPendingContasReceber(prisma);
+      }
+
+      if (isServiceEnabled('CONTAS_RECEBER_BAIXA')) {
+        await processPendingContasReceberBaixa(prisma);
+      }
+
       return;
     }
 
