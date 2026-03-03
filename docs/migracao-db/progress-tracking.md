@@ -16,11 +16,18 @@
 
 - Checkpoint: `F5.2.10-seed-admin-docker-e-validacao-front-back`
 - Resultado:
+  - migracao do endpoint `POST /api/ContasPagar/InserirContasPagar` para modo PostgreSQL local aplicada:
+    - `backend/src/services/contasPagarService.ts` agora detecta `postgresql://` com legado desativado (`ENABLE_SENIOR_INTEGRATION=false`)
+    - no modo local, persiste em `FaturaPagar` e `FaturaPagarParcela` via Prisma (upsert + substituicao de parcelas)
+    - cancelamento (`cancelado=1`) persiste em `FaturaPagarCancelamento` via Prisma
+    - evita execucao de SQL Server/stored procedures no caminho principal desse endpoint
+    - resposta passa a retornar sucesso controlado no modo local (criacao/atualizacao/cancelamento), com log estruturado
   - script de validacao de Contas a Pagar criado na raiz:
     - `smoke-contas-pagar.sh`
     - cobre `POST /api/ContasPagar/InserirContasPagar`, `POST /webhooks/faturas/pagar/criar` e duplicate por `x-event-id`
     - gera payloads em arquivo temporario com IDs/eventId unicos para evitar erro de JSON quebrado no shell
     - inclui timeout de rede e resumo final de `PASS/FAIL`
+    - validacao da API de Contas a Pagar atualizada para exigir `HTTP 202` (comportamento esperado apos migracao local)
   - documento de preparacao para reuniao SAP criado:
     - `docs/integracao-sap/roteiro-reuniao.md` com mini plano tecnico de integracao worker -> SAP
     - inclui: arquitetura alvo, flags por dominio, ordem de rollout, fluxo de referencia e checklist

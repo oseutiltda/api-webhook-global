@@ -2,8 +2,11 @@ import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { createOrUpdateWebhookEvent } from '../utils/webhookEvent';
 import type { ContasPagar, Installments, InvoiceItems } from '../schemas/contasPagar';
+import { env } from '../config/env';
 
 const prisma = new PrismaClient();
+const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
+const LEGACY_DISABLED = !env.ENABLE_SENIOR_INTEGRATION;
 
 // Helper para converter valores para SQL
 const toSqlValue = (value: any): string => {
@@ -270,7 +273,10 @@ export async function inserirCentroCusto(contasPagar: ContasPagar): Promise<numb
 /**
  * Insere Associação de Centro de Custo com Fatura
  */
-export async function inserirCentroCustoAssociacao(idFatura: number, idCentroCusto: number): Promise<void> {
+export async function inserirCentroCustoAssociacao(
+  idFatura: number,
+  idCentroCusto: number,
+): Promise<void> {
   try {
     if (idFatura <= 0 || idCentroCusto <= 0) {
       logger.warn({ idFatura, idCentroCusto }, 'IDs inválidos para associação de centro de custo');
@@ -286,7 +292,10 @@ export async function inserirCentroCustoAssociacao(idFatura: number, idCentroCus
     await prisma.$executeRawUnsafe(sql);
     logger.info({ idFatura, idCentroCusto }, 'Centro de custo associado com sucesso');
   } catch (error: any) {
-    logger.error({ error: error.message, idFatura, idCentroCusto }, 'Erro ao associar centro de custo');
+    logger.error(
+      { error: error.message, idFatura, idCentroCusto },
+      'Erro ao associar centro de custo',
+    );
     throw error;
   }
 }
@@ -298,7 +307,7 @@ export async function inserirFatura(
   contasPagar: ContasPagar,
   idFilial: number,
   idFornecedor: number,
-  idContaContabil: number
+  idContaContabil: number,
 ): Promise<number> {
   try {
     const installmentCount = contasPagar.installment_count ?? 0;
@@ -399,7 +408,10 @@ export async function inserirParcela(parcela: Installments, idFatura: number): P
     }
     return 0;
   } catch (error: any) {
-    logger.error({ error: error.message, parcelaId: parcela.id, idFatura }, 'Erro ao inserir parcela');
+    logger.error(
+      { error: error.message, parcelaId: parcela.id, idFatura },
+      'Erro ao inserir parcela',
+    );
     return 0;
   }
 }
@@ -430,7 +442,10 @@ export async function inserirFaturaItem(item: InvoiceItems, idFatura: number): P
     await prisma.$executeRawUnsafe(sql);
     logger.info({ itemId: item.id, idFatura }, 'Item da fatura inserido com sucesso');
   } catch (error: any) {
-    logger.error({ error: error.message, itemId: item.id, idFatura }, 'Erro ao inserir item da fatura');
+    logger.error(
+      { error: error.message, itemId: item.id, idFatura },
+      'Erro ao inserir item da fatura',
+    );
     throw error;
   }
 }
@@ -455,7 +470,10 @@ export async function cancelarContasPagar(contasPagar: ContasPagar): Promise<voi
     await prisma.$executeRawUnsafe(sql);
     logger.info({ document: contasPagar.data.document }, 'Conta a pagar cancelada com sucesso');
   } catch (error: any) {
-    logger.error({ error: error.message, document: contasPagar.data.document }, 'Erro ao cancelar conta a pagar');
+    logger.error(
+      { error: error.message, document: contasPagar.data.document },
+      'Erro ao cancelar conta a pagar',
+    );
     throw error;
   }
 }
@@ -466,7 +484,7 @@ export async function cancelarContasPagar(contasPagar: ContasPagar): Promise<voi
 export async function inserirContasPagar(
   contasPagar: ContasPagar,
   eventId?: string | null,
-  startTime?: number
+  startTime?: number,
 ): Promise<{ status: boolean; mensagem: string; idFatura?: number; created?: boolean }> {
   const tabelasInseridas: string[] = [];
   const tabelasFalhadas: Array<{ tabela: string; erro: string }> = [];
@@ -482,10 +500,124 @@ export async function inserirContasPagar(
       };
     }
 
+    // Migração Global: no modo PostgreSQL sem legado, persistir localmente e não executar SQL Server/Senior.
+    if (IS_POSTGRES && LEGACY_DISABLED) {
+      const faturaId = String(contasPagar.data.id);
+      const numero = contasPagar.data.document || `CP-${faturaId}`;
+      const emissao = contasPagar.data.issue_date || new Date().toISOString().slice(0, 10);
+      const valor = Number(contasPagar.data.value || 0);
+      const fornecedorCnpj =
+        contasPagar.data.corporation?.cnpj || contasPagar.data.receiver?.cnpj || '';
+
+      if (contasPagar.data.cancelado === 1) {
+        await prisma.faturaPagarCancelamento.upsert({
+          where: { id: faturaId },
+          update: {
+            numero,
+            motivo: contasPagar.data.Obscancelado || 'Cancelado via API/ContasPagar',
+          },
+          create: {
+            id: faturaId,
+            numero,
+            motivo: contasPagar.data.Obscancelado || 'Cancelado via API/ContasPagar',
+          },
+        });
+
+        logger.info(
+          {
+            faturaId,
+            document: numero,
+            motivo: 'postgres_local_sem_legacy',
+          },
+          'Contas a pagar cancelada em modo local (sem integração legada)',
+        );
+
+        return {
+          status: true,
+          mensagem: 'Conta a pagar cancelada com sucesso (modo local).',
+          idFatura: contasPagar.data.id,
+          created: false,
+        };
+      }
+
+      const existente = await prisma.faturaPagar.findUnique({ where: { id: faturaId } });
+      const created = !existente;
+
+      await prisma.$transaction(async (tx) => {
+        await tx.faturaPagar.upsert({
+          where: { id: faturaId },
+          update: {
+            fornecedorCnpj,
+            numero,
+            emissao,
+            valor,
+          },
+          create: {
+            id: faturaId,
+            fornecedorCnpj,
+            numero,
+            emissao,
+            valor,
+          },
+        });
+
+        await tx.faturaPagarParcela.deleteMany({ where: { faturaId } });
+        if (contasPagar.data.installments && contasPagar.data.installments.length > 0) {
+          await tx.faturaPagarParcela.createMany({
+            data: contasPagar.data.installments.map((p, index) => ({
+              faturaId,
+              posicao: p.position ?? index + 1,
+              dueDate: p.due_date || emissao,
+              valor: Number(p.value || 0),
+              interestValue: p.interest_value !== undefined ? Number(p.interest_value) : null,
+              discountValue: p.discount_value !== undefined ? Number(p.discount_value) : null,
+              paymentMethod: p.payment_method || null,
+              comments: p.comments || null,
+              installmentId: p.id,
+            })),
+          });
+        }
+      });
+
+      if (eventId) {
+        await createOrUpdateWebhookEvent(
+          eventId,
+          '/api/ContasPagar/InserirContasPagar',
+          'processed',
+          null,
+          {
+            integrationStatus: 'integrated',
+            integrationMode: 'postgres_local_sem_legacy',
+            idFatura: contasPagar.data.id,
+            document: numero,
+          },
+        );
+      }
+
+      logger.info(
+        {
+          faturaId,
+          document: numero,
+          created,
+          motivo: 'postgres_local_sem_legacy',
+        },
+        'Contas a pagar persistida localmente em PostgreSQL',
+      );
+
+      return {
+        status: true,
+        mensagem: created
+          ? 'Registro criado com sucesso! (modo local)'
+          : 'Registro atualizado com sucesso! (modo local)',
+        idFatura: contasPagar.data.id,
+        created,
+      };
+    }
+
     // Verificar se já existe
     const verificarFaturaExistente = async (
       external_id: number,
-      document: string | null
+      document: string | null,
     ): Promise<{ id: number; external_id: number } | null> => {
       try {
         const whereClauses: string[] = [];
@@ -495,18 +627,19 @@ export async function inserirContasPagar(
         if (document) {
           whereClauses.push(`document = ${toSqlValue(document)}`);
         }
-        
+
         if (whereClauses.length === 0) {
           return null;
         }
-        
+
         const sql = `
           SELECT TOP 1 Id, external_id
           FROM dbo.debit_invoices WITH (NOLOCK)
           WHERE ${whereClauses.join(' OR ')}
         `;
-        
-        const result = await prisma.$queryRawUnsafe<Array<{ Id: number; external_id: number }>>(sql);
+
+        const result =
+          await prisma.$queryRawUnsafe<Array<{ Id: number; external_id: number }>>(sql);
         if (result && result.length > 0 && result[0]?.Id) {
           return {
             id: Number(result[0].Id),
@@ -515,14 +648,17 @@ export async function inserirContasPagar(
         }
         return null;
       } catch (error: any) {
-        logger.warn({ error: error.message, external_id, document }, 'Erro ao verificar fatura existente');
+        logger.warn(
+          { error: error.message, external_id, document },
+          'Erro ao verificar fatura existente',
+        );
         return null;
       }
     };
 
     const faturaExistente = await verificarFaturaExistente(
       contasPagar.data.id,
-      contasPagar.data.document || null
+      contasPagar.data.document || null,
     );
 
     if (faturaExistente) {
@@ -557,7 +693,10 @@ export async function inserirContasPagar(
         tabelasFalhadas.push({ tabela: 'Corporation (Filial)', erro: 'ID não retornado' });
       }
     } catch (error: any) {
-      tabelasFalhadas.push({ tabela: 'Corporation (Filial)', erro: error.message || 'Erro desconhecido' });
+      tabelasFalhadas.push({
+        tabela: 'Corporation (Filial)',
+        erro: error.message || 'Erro desconhecido',
+      });
     }
 
     // Inserir Fornecedor
@@ -570,7 +709,10 @@ export async function inserirContasPagar(
         tabelasFalhadas.push({ tabela: 'Person (Fornecedor)', erro: 'ID não retornado' });
       }
     } catch (error: any) {
-      tabelasFalhadas.push({ tabela: 'Person (Fornecedor)', erro: error.message || 'Erro desconhecido' });
+      tabelasFalhadas.push({
+        tabela: 'Person (Fornecedor)',
+        erro: error.message || 'Erro desconhecido',
+      });
     }
 
     // Inserir Conta Contábil
@@ -580,23 +722,38 @@ export async function inserirContasPagar(
       if (idContaContabil > 0) {
         tabelasInseridas.push('Accounting Planning (Conta Contábil)');
       } else {
-        tabelasFalhadas.push({ tabela: 'Accounting Planning (Conta Contábil)', erro: 'ID não retornado' });
+        tabelasFalhadas.push({
+          tabela: 'Accounting Planning (Conta Contábil)',
+          erro: 'ID não retornado',
+        });
       }
     } catch (error: any) {
-      tabelasFalhadas.push({ tabela: 'Accounting Planning (Conta Contábil)', erro: error.message || 'Erro desconhecido' });
+      tabelasFalhadas.push({
+        tabela: 'Accounting Planning (Conta Contábil)',
+        erro: error.message || 'Erro desconhecido',
+      });
     }
 
     // Se é UPDATE, deletar dados antigos primeiro
     if (isUpdate && idFatura > 0) {
       try {
         // Deletar parcelas antigas
-        await prisma.$executeRawUnsafe(`DELETE FROM dbo.debit_installments WHERE debit_invoice_id = ${idFatura};`);
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM dbo.debit_installments WHERE debit_invoice_id = ${idFatura};`,
+        );
         // Deletar itens antigos
-        await prisma.$executeRawUnsafe(`DELETE FROM dbo.debit_invoice_items WHERE debit_invoice_id = ${idFatura};`);
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM dbo.debit_invoice_items WHERE debit_invoice_id = ${idFatura};`,
+        );
         // Deletar associação de centro de custo
-        await prisma.$executeRawUnsafe(`DELETE FROM dbo.debit_invoice_cost_centers WHERE debit_invoice_id = ${idFatura};`);
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM dbo.debit_invoice_cost_centers WHERE debit_invoice_id = ${idFatura};`,
+        );
       } catch (error: any) {
-        logger.warn({ error: error.message, idFatura }, 'Erro ao deletar dados antigos (não crítico)');
+        logger.warn(
+          { error: error.message, idFatura },
+          'Erro ao deletar dados antigos (não crítico)',
+        );
       }
     }
 
@@ -605,7 +762,7 @@ export async function inserirContasPagar(
       if (isUpdate) {
         // UPDATE direto na tabela usando SQL
         const installmentCount = contasPagar.installment_count ?? 0;
-        
+
         const sql = `
           UPDATE dbo.debit_invoices SET
             external_id = ${contasPagar.data.id},
@@ -626,26 +783,37 @@ export async function inserirContasPagar(
         `;
 
         await prisma.$executeRawUnsafe(sql);
-        logger.info({ idFatura, document: contasPagar.data.document }, 'Fatura atualizada com sucesso');
+        logger.info(
+          { idFatura, document: contasPagar.data.document },
+          'Fatura atualizada com sucesso',
+        );
         tabelasInseridas.push('Debit Invoice (Fatura)');
       } else {
         // INSERT via stored procedure
         idFatura = await inserirFatura(contasPagar, idFilial, idFornecedor, idContaContabil);
         if (idFatura > 0) {
           tabelasInseridas.push('Debit Invoice (Fatura)');
-          
+
           // Garantir que processed = 0 para que o worker processe
           try {
-            await prisma.$executeRawUnsafe(`UPDATE dbo.debit_invoices SET processed = 0 WHERE Id = ${idFatura}`);
+            await prisma.$executeRawUnsafe(
+              `UPDATE dbo.debit_invoices SET processed = 0 WHERE Id = ${idFatura}`,
+            );
           } catch (e) {
-            logger.warn({ idFatura, error: (e as Error).message }, 'Erro ao forçar processed = 0 após insert');
+            logger.warn(
+              { idFatura, error: (e as Error).message },
+              'Erro ao forçar processed = 0 após insert',
+            );
           }
         } else {
           tabelasFalhadas.push({ tabela: 'Debit Invoice (Fatura)', erro: 'ID não retornado' });
         }
       }
     } catch (error: any) {
-      tabelasFalhadas.push({ tabela: 'Debit Invoice (Fatura)', erro: error.message || 'Erro desconhecido' });
+      tabelasFalhadas.push({
+        tabela: 'Debit Invoice (Fatura)',
+        erro: error.message || 'Erro desconhecido',
+      });
       logger.error({ error: error.message }, 'Erro ao inserir/atualizar fatura');
     }
 
@@ -654,7 +822,7 @@ export async function inserirContasPagar(
       if (eventId) {
         const temFalhas = tabelasFalhadas.length > 0;
         const mensagemErro = temFalhas
-          ? `Tabelas inseridas: ${tabelasInseridas.join(', ')}. Tabelas com erro: ${tabelasFalhadas.map(t => `${t.tabela} (${t.erro})`).join(', ')}.`
+          ? `Tabelas inseridas: ${tabelasInseridas.join(', ')}. Tabelas com erro: ${tabelasFalhadas.map((t) => `${t.tabela} (${t.erro})`).join(', ')}.`
           : 'Fatura não incluída, favor verificar lançamento!';
 
         const metadata: any = {
@@ -680,7 +848,7 @@ export async function inserirContasPagar(
           '/api/ContasPagar/InserirContasPagar',
           'failed',
           mensagemErro,
-          metadata
+          metadata,
         );
       }
 
@@ -697,8 +865,19 @@ export async function inserirContasPagar(
     // vamos deixar a responsabilidade do async para quem chama, ou fazemos fire-and-forget aqui.
     // Como a função `inserirContasPagar` retorna uma Promise, se dermos await aqui, ela vai esperar tudo.
     // Então, fazemos o fire-and-forget explicitamente:
-    processarItensEParcelas(contasPagar, idFatura, eventId, isUpdate, tabelasInseridas, tabelasFalhadas, startProcessing).catch(err => {
-       logger.error({ eventId, error: err.message }, 'Erro no processamento assíncrono de itens/parcelas');
+    processarItensEParcelas(
+      contasPagar,
+      idFatura,
+      eventId,
+      isUpdate,
+      tabelasInseridas,
+      tabelasFalhadas,
+      startProcessing,
+    ).catch((err) => {
+      logger.error(
+        { eventId, error: err.message },
+        'Erro no processamento assíncrono de itens/parcelas',
+      );
     });
 
     // Retorno Síncrono Imediato (após inserir cabeçalho)
@@ -708,7 +887,6 @@ export async function inserirContasPagar(
       idFatura,
       created: !isUpdate,
     };
-
   } catch (error: any) {
     logger.error({ error: error.message }, 'Erro ao inserir conta a pagar');
 
@@ -724,7 +902,7 @@ export async function inserirContasPagar(
           totalTabelas: tabelasInseridas.length + tabelasFalhadas.length,
           sucesso: tabelasInseridas.length,
           falhas: tabelasFalhadas.length,
-        }
+        },
       };
 
       if (tabelasFalhadas.length > 0) {
@@ -736,7 +914,7 @@ export async function inserirContasPagar(
         '/api/ContasPagar/InserirContasPagar',
         'failed',
         error.message || 'Erro desconhecido',
-        metadata
+        metadata,
       );
     }
 
@@ -757,95 +935,104 @@ async function processarItensEParcelas(
   isUpdate: boolean,
   tabelasInseridas: string[],
   tabelasFalhadas: Array<{ tabela: string; erro: string }>,
-  startProcessing: number
+  startProcessing: number,
 ) {
-    // Inserir Centro de Custo (se informado)
-    if (contasPagar.data.cost_centers) {
+  // Inserir Centro de Custo (se informado)
+  if (contasPagar.data.cost_centers) {
+    try {
+      const idCentroCusto = await inserirCentroCusto(contasPagar);
+      if (idCentroCusto > 0) {
+        await inserirCentroCustoAssociacao(idFatura, idCentroCusto);
+        tabelasInseridas.push('Cost Center (Centro de Custo)');
+      } else {
+        tabelasFalhadas.push({ tabela: 'Cost Center (Centro de Custo)', erro: 'ID não retornado' });
+      }
+    } catch (error: any) {
+      tabelasFalhadas.push({
+        tabela: 'Cost Center (Centro de Custo)',
+        erro: error.message || 'Erro desconhecido',
+      });
+    }
+  }
+
+  // Inserir Parcelas (se informadas)
+  if (contasPagar.data.installments && contasPagar.data.installments.length > 0) {
+    for (const parcela of contasPagar.data.installments) {
       try {
-        const idCentroCusto = await inserirCentroCusto(contasPagar);
-        if (idCentroCusto > 0) {
-          await inserirCentroCustoAssociacao(idFatura, idCentroCusto);
-          tabelasInseridas.push('Cost Center (Centro de Custo)');
-        } else {
-          tabelasFalhadas.push({ tabela: 'Cost Center (Centro de Custo)', erro: 'ID não retornado' });
+        await inserirParcela(parcela, idFatura);
+        if (!tabelasInseridas.includes('Debit Installments (Parcelas)')) {
+          tabelasInseridas.push('Debit Installments (Parcelas)');
         }
       } catch (error: any) {
-        tabelasFalhadas.push({ tabela: 'Cost Center (Centro de Custo)', erro: error.message || 'Erro desconhecido' });
-      }
-    }
-
-    // Inserir Parcelas (se informadas)
-    if (contasPagar.data.installments && contasPagar.data.installments.length > 0) {
-      for (const parcela of contasPagar.data.installments) {
-        try {
-          await inserirParcela(parcela, idFatura);
-          if (!tabelasInseridas.includes('Debit Installments (Parcelas)')) {
-            tabelasInseridas.push('Debit Installments (Parcelas)');
-          }
-        } catch (error: any) {
-          if (!tabelasFalhadas.some(t => t.tabela === 'Debit Installments (Parcelas)')) {
-            tabelasFalhadas.push({ tabela: 'Debit Installments (Parcelas)', erro: error.message || 'Erro desconhecido' });
-          }
+        if (!tabelasFalhadas.some((t) => t.tabela === 'Debit Installments (Parcelas)')) {
+          tabelasFalhadas.push({
+            tabela: 'Debit Installments (Parcelas)',
+            erro: error.message || 'Erro desconhecido',
+          });
         }
       }
     }
+  }
 
-    // Inserir Itens da Fatura (se informados)
-    if (contasPagar.data.invoice_items && contasPagar.data.invoice_items.length > 0) {
-      for (const item of contasPagar.data.invoice_items) {
-        try {
-          await inserirFaturaItem(item, idFatura);
-          if (!tabelasInseridas.includes('Debit Invoice Items (Itens da Fatura)')) {
-            tabelasInseridas.push('Debit Invoice Items (Itens da Fatura)');
-          }
-        } catch (error: any) {
-          if (!tabelasFalhadas.some(t => t.tabela === 'Debit Invoice Items (Itens da Fatura)')) {
-            tabelasFalhadas.push({ tabela: 'Debit Invoice Items (Itens da Fatura)', erro: error.message || 'Erro desconhecido' });
-          }
+  // Inserir Itens da Fatura (se informados)
+  if (contasPagar.data.invoice_items && contasPagar.data.invoice_items.length > 0) {
+    for (const item of contasPagar.data.invoice_items) {
+      try {
+        await inserirFaturaItem(item, idFatura);
+        if (!tabelasInseridas.includes('Debit Invoice Items (Itens da Fatura)')) {
+          tabelasInseridas.push('Debit Invoice Items (Itens da Fatura)');
+        }
+      } catch (error: any) {
+        if (!tabelasFalhadas.some((t) => t.tabela === 'Debit Invoice Items (Itens da Fatura)')) {
+          tabelasFalhadas.push({
+            tabela: 'Debit Invoice Items (Itens da Fatura)',
+            erro: error.message || 'Erro desconhecido',
+          });
         }
       }
     }
+  }
 
-    // Atualizar evento WebhookEvent com informações detalhadas das tabelas
-    if (eventId) {
-      const temFalhas = tabelasFalhadas.length > 0;
-      
-      let mensagemErro: string | null = null;
-      if (temFalhas) {
-        const tabelasOk = tabelasInseridas.length > 0 
+  // Atualizar evento WebhookEvent com informações detalhadas das tabelas
+  if (eventId) {
+    const temFalhas = tabelasFalhadas.length > 0;
+
+    let mensagemErro: string | null = null;
+    if (temFalhas) {
+      const tabelasOk =
+        tabelasInseridas.length > 0
           ? `Tabelas inseridas/atualizadas com sucesso: ${tabelasInseridas.join(', ')}. `
           : '';
-        const tabelasErro = `Tabelas com erro: ${tabelasFalhadas.map(t => `${t.tabela} (${t.erro})`).join(', ')}.`;
-        mensagemErro = tabelasOk + tabelasErro;
-      }
-      
-      const metadata: any = {
-        idFatura: idFatura,
-        document: contasPagar.data.document,
-        id: contasPagar.data.id,
-        installmentCount: contasPagar.data.installments?.length || 0,
-        invoiceItemsCount: contasPagar.data.invoice_items?.length || 0,
-        etapa: isUpdate ? 'backend_atualizado' : 'backend_inserido',
-        operacao: isUpdate ? 'UPDATE' : 'INSERT',
-        tabelasInseridas: tabelasInseridas,
-        resumo: {
-          totalTabelas: tabelasInseridas.length + tabelasFalhadas.length,
-          sucesso: tabelasInseridas.length,
-          falhas: tabelasFalhadas.length,
-        }
-      };
-      
-      if (temFalhas) {
-        metadata.tabelasFalhadas = tabelasFalhadas;
-      }
-      
-      await createOrUpdateWebhookEvent(
-        eventId,
-        '/api/ContasPagar/InserirContasPagar',
-        'processed',
-        mensagemErro,
-        metadata
-      );
+      const tabelasErro = `Tabelas com erro: ${tabelasFalhadas.map((t) => `${t.tabela} (${t.erro})`).join(', ')}.`;
+      mensagemErro = tabelasOk + tabelasErro;
     }
-}
 
+    const metadata: any = {
+      idFatura: idFatura,
+      document: contasPagar.data.document,
+      id: contasPagar.data.id,
+      installmentCount: contasPagar.data.installments?.length || 0,
+      invoiceItemsCount: contasPagar.data.invoice_items?.length || 0,
+      etapa: isUpdate ? 'backend_atualizado' : 'backend_inserido',
+      operacao: isUpdate ? 'UPDATE' : 'INSERT',
+      tabelasInseridas: tabelasInseridas,
+      resumo: {
+        totalTabelas: tabelasInseridas.length + tabelasFalhadas.length,
+        sucesso: tabelasInseridas.length,
+        falhas: tabelasFalhadas.length,
+      },
+    };
+
+    if (temFalhas) {
+      metadata.tabelasFalhadas = tabelasFalhadas;
+    }
+
+    await createOrUpdateWebhookEvent(
+      eventId,
+      '/api/ContasPagar/InserirContasPagar',
+      'processed',
+      mensagemErro,
+      metadata,
+    );
+  }
+}

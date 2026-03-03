@@ -126,10 +126,9 @@ echo "BASE_URL=$BASE_URL"
 echo "API_ID=$API_ID WEBHOOK_ID=$WEBHOOK_ID EVENT_ID=$EVENT_ID"
 echo "Iniciando smoke de Contas a Pagar..."
 
-# No cenário atual de migração, o endpoint /api/ContasPagar pode retornar 400 por fluxo legado desativado.
 run_test \
   "POST /api/ContasPagar/InserirContasPagar" \
-  "202|400" \
+  "202" \
   -X POST "$BASE_URL/api/ContasPagar/InserirContasPagar?token=$API_FIXED_TOKEN" \
   -H "Content-Type: application/json" \
   --data-binary "@$TMP_API_JSON"
