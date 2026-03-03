@@ -62,7 +62,7 @@ run_test "GET /api/health" "200|503" "GET" "$BASE_URL/api/health" ""
 # 3) Webhook CT-e autorizado (segredo)
 run_test \
   "POST /webhooks/cte/autorizado" \
-  "200|201|400|500" \
+  "200|201|202|400|500" \
   "POST" \
   "$BASE_URL/webhooks/cte/autorizado" \
   '{"id":"evt-smoke-001","authorization_number":7001002,"status":"AUTORIZADO","xml":"<cte/>","event_xml":null}' \

@@ -22,6 +22,9 @@
     - `ensureIdempotency` trata erro nao mapeado com resposta `500` controlada (sem `Unhandled Rejection`)
     - `/api/health` passa a marcar worker como `unknown` quando `WebhookEvent` nao existe (em vez de `offline`), evitando falso negativo sistemico
     - `smoke-prod.sh` recebeu timeout de conexao/resposta para diagnostico deterministico em producao
+  - hotfix adicional de resiliencia em runtime:
+    - `backend/src/app.ts` passa a importar `express-async-errors` para encaminhar erros async ao `errorHandler` e evitar requests penduradas/timeout
+    - `smoke-prod.sh` atualizado para considerar `202 Accepted` como sucesso no webhook `/webhooks/cte/autorizado`
   - dominio Pessoa com sub-lotes 5.1.1/5.1.2/5.1.3 aplicados (bypass + leituras locais + gravacao minima)
   - iniciado hardening de CTe no worker com guard explicito para bloquear fluxo SQL Server legado em PostgreSQL
   - leituras de CTe em `cteSync` migradas para Prisma no modo PostgreSQL (pendentes/cancelados)
@@ -103,6 +106,7 @@
     - `dev.sh` agora tenta matar automaticamente listeners em `3000/3001` do mesmo usuario antes de abortar por porta ocupada
     - `backend/src/server.ts` atualizado para respeitar `HOST` (fallback `0.0.0.0`)
 - Evidencias:
+  - `backend/src/app.ts`
   - `backend/src/middleware/auth.ts`
   - `backend/src/routes/dashboard.ts`
   - `smoke-prod.sh`
