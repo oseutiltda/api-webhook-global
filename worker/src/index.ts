@@ -10,14 +10,13 @@ import { processPendingCte, processPendingCteCancelados } from './services/cteSy
 import { processPendingContasPagar } from './services/contasPagarSync';
 import { processPendingContasReceber } from './services/contasReceberSync';
 import { processPendingContasReceberBaixa } from './services/contasReceberBaixaSync';
+import { buildWorkerBypassMetadata, isPostgresSafeMode } from './utils/integrationMode';
 
 const prisma = new PrismaClient();
 const INTERVAL_MS = Number(env.WORKER_INTERVAL_MS);
 const BATCH_SIZE = Number(env.WORKER_BATCH_SIZE);
 const MAX_RETRIES = Number(env.WORKER_MAX_RETRIES);
 const ENABLE_WORKER = env.ENABLE_WORKER;
-const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
-const ENABLE_SQLSERVER_LEGACY = env.ENABLE_SQLSERVER_LEGACY;
 
 function isMissingWebhookEventTable(error: any): boolean {
   if (error?.code !== 'P2021') return false;
@@ -241,7 +240,7 @@ async function processBatch() {
 
     // Em PostgreSQL com legado desligado, manter apenas fluxos explicitamente
     // adaptados para modo seguro, evitando executar domínios ainda dependentes de SQL Server.
-    if (IS_POSTGRES && !ENABLE_SQLSERVER_LEGACY) {
+    if (isPostgresSafeMode()) {
       const safeServices = [
         'CTE',
         'CIOT',
@@ -253,8 +252,7 @@ async function processBatch() {
 
       logger.debug(
         {
-          isPostgres: IS_POSTGRES,
-          enableSqlServerLegacy: ENABLE_SQLSERVER_LEGACY,
+          ...buildWorkerBypassMetadata('index.processBatch'),
           safeServices,
         },
         'Worker em modo PostgreSQL sem legado: executando somente fluxos adaptados',

@@ -38,6 +38,18 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((v) => v.trim().toLowerCase() === 'true'),
+  ENABLE_EXTERNAL_EXPORT: z
+    .string()
+    .default('false')
+    .transform((v) => v.trim().toLowerCase() === 'true'),
+  ENABLE_EXTERNAL_IMPORT: z
+    .string()
+    .default('false')
+    .transform((v) => v.trim().toLowerCase() === 'true'),
+  ENABLE_SENIOR_INTEGRATION: z
+    .string()
+    .default('false')
+    .transform((v) => v.trim().toLowerCase() === 'true'),
 });
 
 let env: z.infer<typeof envSchema>;

@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
-import { env } from '../config/env';
 import { logger } from '../utils/logger';
+import { buildWorkerBypassMetadata, isPostgresSafeMode } from '../utils/integrationMode';
 import { inserirContasReceberSenior } from './contasReceberIntegration';
 import type {
   Fatura,
@@ -15,8 +15,6 @@ import type {
 const CONTAS_RECEBER_BAIXA_BATCH_SIZE = Number(
   process.env.CONTAS_RECEBER_BAIXA_WORKER_BATCH_SIZE ?? '5',
 );
-const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
-const ENABLE_SQLSERVER_LEGACY = env.ENABLE_SQLSERVER_LEGACY;
 
 const toSqlValue = (value: any): string => {
   if (value === null || value === undefined) return 'NULL';
@@ -604,8 +602,7 @@ const processPendingContasReceberBaixaPostgres = async (prisma: PrismaClient): P
         processingTimeMs: Date.now() - start,
         metadata: JSON.stringify({
           ...metadataBase,
-          workerMode: 'postgres_local_sem_legacy',
-          workerService: 'contasReceberBaixaSync',
+          ...buildWorkerBypassMetadata('contasReceberBaixaSync'),
           observacao: 'Integracao externa desativada; baixa registrada localmente no PostgreSQL.',
         }).substring(0, 2000),
       },
@@ -617,7 +614,7 @@ const processPendingContasReceberBaixaPostgres = async (prisma: PrismaClient): P
  * Processa contas a receber fechamento pendentes
  */
 export async function processPendingContasReceberBaixa(prisma: PrismaClient): Promise<void> {
-  if (IS_POSTGRES && !ENABLE_SQLSERVER_LEGACY) {
+  if (isPostgresSafeMode()) {
     try {
       await processPendingContasReceberBaixaPostgres(prisma);
     } catch (error: any) {

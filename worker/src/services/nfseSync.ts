@@ -2,6 +2,7 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { obterProximoNrSeqControle } from '../utils/nrSeqControle';
 import { env } from '../config/env';
+import { buildWorkerBypassMetadata, isPostgresSafeMode } from '../utils/integrationMode';
 
 // Função para traduzir erros SQL para linguagem mais simples
 function translateError(errorMessage: string, numeroDocumento?: number): string {
@@ -89,8 +90,6 @@ const NFSE_SOURCE_DATABASE = process.env.NFSE_SOURCE_DATABASE || 'AFS_INTEGRADOR
 const NFSE_DESTINATION_DATABASE = process.env.NFSE_DESTINATION_DATABASE || env.SENIOR_DATABASE;
 const NFSE_TABLE = `[${NFSE_SOURCE_DATABASE}].[dbo].[nfse]`;
 const NFSE_DEST_PREFIX = `[${NFSE_DESTINATION_DATABASE}].[dbo]`;
-const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
-const ENABLE_SQLSERVER_LEGACY = env.ENABLE_SQLSERVER_LEGACY;
 
 /**
  * Calcula o CdEmpresa baseado no CNPJ do prestador
@@ -1007,8 +1006,7 @@ async function processPendingNfsePostgres(prisma: PrismaClient) {
           errorMessage: null,
           metadata: JSON.stringify({
             ...metadataBase,
-            workerMode: 'postgres_local_sem_legacy',
-            workerService: 'nfseSync',
+            ...buildWorkerBypassMetadata('nfseSync'),
             etapa: 'worker_local_processed',
             observacao:
               'Integracao externa desativada; evento NFSe mantido em modo local no PostgreSQL.',
@@ -1042,7 +1040,7 @@ async function processPendingNfsePostgres(prisma: PrismaClient) {
 }
 
 export async function processPendingNfse(prisma: PrismaClient) {
-  if (IS_POSTGRES && !ENABLE_SQLSERVER_LEGACY) {
+  if (isPostgresSafeMode()) {
     await processPendingNfsePostgres(prisma);
     return;
   }

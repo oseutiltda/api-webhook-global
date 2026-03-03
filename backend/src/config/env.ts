@@ -33,6 +33,10 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((v) => v.trim().toLowerCase() === 'true'),
+  ENABLE_SQLSERVER_LEGACY: z
+    .string()
+    .default('false')
+    .transform((v) => v.trim().toLowerCase() === 'true'),
 });
 
 export const env = envSchema.parse(process.env);

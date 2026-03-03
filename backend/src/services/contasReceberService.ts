@@ -2,11 +2,9 @@ import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import type { ContasReceber, Installments, InvoiceItems } from '../schemas/contasReceber';
 import { createOrUpdateWebhookEvent } from '../utils/webhookEvent';
-import { env } from '../config/env';
+import { buildBypassMetadata, isPostgresSafeMode } from '../utils/integrationMode';
 
 const prisma = new PrismaClient();
-const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
-const LEGACY_DISABLED = !env.ENABLE_SENIOR_INTEGRATION;
 
 // Helper para converter valores para SQL
 const toSqlValue = (value: any): string => {
@@ -662,7 +660,7 @@ export async function inserirContasReceber(
     }
 
     // Migração Global: no modo PostgreSQL sem legado, persistir localmente e não executar SQL Server/Senior.
-    if (IS_POSTGRES && LEGACY_DISABLED) {
+    if (isPostgresSafeMode()) {
       const faturaId = String(contasReceber.data.id);
       const numero = contasReceber.data.document || `CR-${faturaId}`;
       const emissao = contasReceber.data.issue_date || new Date().toISOString().slice(0, 10);
@@ -675,7 +673,7 @@ export async function inserirContasReceber(
           {
             faturaId,
             document: numero,
-            motivo: 'postgres_local_sem_legacy',
+            ...buildBypassMetadata('contasReceberService', { motivo: 'cancelamento_local' }),
           },
           'Conta a receber marcada como cancelada em modo local (sem integração legada)',
         );
@@ -688,7 +686,7 @@ export async function inserirContasReceber(
             null,
             {
               integrationStatus: 'canceled',
-              integrationMode: 'postgres_local_sem_legacy',
+              ...buildBypassMetadata('contasReceberService'),
               document: numero,
               id: contasReceber.data.id,
             },
@@ -775,7 +773,7 @@ export async function inserirContasReceber(
           null,
           {
             integrationStatus: 'integrated',
-            integrationMode: 'postgres_local_sem_legacy',
+            ...buildBypassMetadata('contasReceberService'),
             document: numero,
             id: contasReceber.data.id,
             idFatura: contasReceber.data.id,
@@ -789,7 +787,7 @@ export async function inserirContasReceber(
           faturaId,
           document: numero,
           created,
-          motivo: 'postgres_local_sem_legacy',
+          ...buildBypassMetadata('contasReceberService'),
         },
         'Contas a receber persistida localmente em PostgreSQL',
       );

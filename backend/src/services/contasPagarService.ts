@@ -2,11 +2,9 @@ import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { createOrUpdateWebhookEvent } from '../utils/webhookEvent';
 import type { ContasPagar, Installments, InvoiceItems } from '../schemas/contasPagar';
-import { env } from '../config/env';
+import { buildBypassMetadata, isPostgresSafeMode } from '../utils/integrationMode';
 
 const prisma = new PrismaClient();
-const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
-const LEGACY_DISABLED = !env.ENABLE_SENIOR_INTEGRATION;
 
 // Helper para converter valores para SQL
 const toSqlValue = (value: any): string => {
@@ -501,7 +499,7 @@ export async function inserirContasPagar(
     }
 
     // Migração Global: no modo PostgreSQL sem legado, persistir localmente e não executar SQL Server/Senior.
-    if (IS_POSTGRES && LEGACY_DISABLED) {
+    if (isPostgresSafeMode()) {
       const faturaId = String(contasPagar.data.id);
       const numero = contasPagar.data.document || `CP-${faturaId}`;
       const emissao = contasPagar.data.issue_date || new Date().toISOString().slice(0, 10);
@@ -527,7 +525,7 @@ export async function inserirContasPagar(
           {
             faturaId,
             document: numero,
-            motivo: 'postgres_local_sem_legacy',
+            ...buildBypassMetadata('contasPagarService', { motivo: 'cancelamento_local' }),
           },
           'Contas a pagar cancelada em modo local (sem integração legada)',
         );
@@ -587,7 +585,7 @@ export async function inserirContasPagar(
           null,
           {
             integrationStatus: 'integrated',
-            integrationMode: 'postgres_local_sem_legacy',
+            ...buildBypassMetadata('contasPagarService'),
             idFatura: contasPagar.data.id,
             document: numero,
           },
@@ -599,7 +597,7 @@ export async function inserirContasPagar(
           faturaId,
           document: numero,
           created,
-          motivo: 'postgres_local_sem_legacy',
+          ...buildBypassMetadata('contasPagarService'),
         },
         'Contas a pagar persistida localmente em PostgreSQL',
       );

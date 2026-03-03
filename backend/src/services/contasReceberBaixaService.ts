@@ -1,11 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import type { ContasReceberBaixa } from '../schemas/contasReceberBaixa';
-import { env } from '../config/env';
+import { isPostgresSafeMode } from '../utils/integrationMode';
 
 const prisma = new PrismaClient();
-const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
-const LEGACY_DISABLED = !env.ENABLE_SENIOR_INTEGRATION;
 
 // Helper para converter valores para SQL
 const toSqlValue = (value: any): string => {
@@ -54,7 +52,7 @@ export async function inserirContasReceberBaixa(
       };
     }
 
-    if (IS_POSTGRES && LEGACY_DISABLED) {
+    if (isPostgresSafeMode()) {
       const parcela = await prisma.faturaReceberParcela.findFirst({
         where: { installmentId: baixa.installment_id },
         select: { id: true },

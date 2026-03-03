@@ -14,8 +14,16 @@
 
 ## Ultimo checkpoint concluido
 
-- Checkpoint: `F5.6-worker-orquestracao-postgres-safe`
+- Checkpoint: `F6.1-feature-flags-hardening-cross-domain`
 - Resultado:
+  - `F6.1-feature-flags-hardening-cross-domain` concluido:
+    - flags globais alinhadas entre backend e worker para modo seguro: `ENABLE_SQLSERVER_LEGACY`, `ENABLE_SENIOR_INTEGRATION`, `ENABLE_EXTERNAL_EXPORT`, `ENABLE_EXTERNAL_IMPORT`
+    - utilitarios de modo de integracao criados para padronizar condicao de bypass e metadata:
+      - `backend/src/utils/integrationMode.ts`
+      - `worker/src/utils/integrationMode.ts`
+    - servicos migrados passaram a usar criterio unico de modo seguro (`postgres_local_safe`) e metadata/log padronizados
+      - backend: `contasPagarService`, `contasReceberService`, `contasReceberBaixaService`
+      - worker: `contasPagarSync`, `contasReceberSync`, `contasReceberBaixaSync`, `nfseSync`, `index`
   - `F5.6-worker-orquestracao-postgres-safe` concluido:
     - `worker/src/index.ts` consolidado para exibir lista dos servicos seguros habilitados (`safeServices`) no modo PostgreSQL sem legado
     - padrao de orquestracao local mantido para dominios migrados: `CTE`, `CIOT`, `NFSE`, `CONTAS_PAGAR`, `CONTAS_RECEBER`, `CONTAS_RECEBER_BAIXA`
@@ -188,6 +196,10 @@
     - `dev.sh` agora tenta matar automaticamente listeners em `3000/3001` do mesmo usuario antes de abortar por porta ocupada
     - `backend/src/server.ts` atualizado para respeitar `HOST` (fallback `0.0.0.0`)
 - Evidencias:
+  - `backend/src/config/env.ts`
+  - `backend/src/utils/integrationMode.ts`
+  - `worker/src/config/env.ts`
+  - `worker/src/utils/integrationMode.ts`
   - `worker/src/services/nfseSync.ts`
   - `worker/src/services/contasPagarSync.ts`
   - `worker/src/services/contasReceberSync.ts`
@@ -219,11 +231,13 @@
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/ciotSync.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/nfseSync.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/nfseSync.ts worker/src/index.ts` OK
+  - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/config/env.ts worker/src/utils/integrationMode.ts worker/src/index.ts worker/src/services/contasPagarSync.ts worker/src/services/contasReceberSync.ts worker/src/services/contasReceberBaixaSync.ts worker/src/services/nfseSync.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/contasPagarSync.ts worker/src/index.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/contasReceberSync.ts worker/src/index.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/contasReceberBaixaSync.ts worker/src/index.ts` OK
   - `worker`: `npm run typecheck` OK
   - `worker`: `npm run lint` OK (sem erros; warnings preexistentes)
+  - `backend`: `./backend/node_modules/.bin/prettier --write backend/src/config/env.ts backend/src/utils/integrationMode.ts backend/src/services/contasPagarService.ts backend/src/services/contasReceberService.ts backend/src/services/contasReceberBaixaService.ts` OK
   - `backend`: `npm run lint` OK (sem erros; warnings preexistentes)
   - `backend`: `npm run typecheck` OK
   - `docker compose ps -a`: backend/frontend/postgres ativos e worker parado (exit 0)
@@ -233,12 +247,12 @@
 
 ## Proximo checkpoint
 
-- Checkpoint alvo: `F6.1-feature-flags-hardening-cross-domain`
+- Checkpoint alvo: `F6.2-bypass-observabilidade-padrao`
 - Objetivo:
-  - consolidar comportamento de flags globais (`ENABLE_SQLSERVER_LEGACY`, `ENABLE_EXTERNAL_EXPORT`, `ENABLE_EXTERNAL_IMPORT`, `ENABLE_SENIOR_INTEGRATION`) entre backend e worker
-  - padronizar respostas/logs de bypass para todos os dominios migrados
+  - padronizar payload de observabilidade (campos e chaves) entre backend e worker para todos os bypasses locais
+  - reduzir variacoes de nomenclatura de modo (`postgres_local_sem_legacy` vs `postgres_local_safe`) em logs/metadados remanescentes
 - Criterio de aceite:
-  - bypass controlado e observavel em todos os dominios migrados com flags desligadas
+  - metadados de bypass com estrutura uniforme em dominios migrados
   - sem regressao no `typecheck/lint` de backend e worker
   - validacao por logs sem erro critico de procedure/objeto SQL Server
 
