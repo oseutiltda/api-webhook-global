@@ -955,8 +955,12 @@ async function processSingleNfse(prisma: PrismaClient, nfseId: number) {
 async function processPendingNfsePostgres(prisma: PrismaClient) {
   const pendingEvents = await prisma.webhookEvent.findMany({
     where: {
-      status: 'pending',
-      OR: [{ source: { contains: '/nfse/autorizado' } }, { source: { contains: '/NFSe/' } }],
+      status: { in: ['pending', 'processing'] },
+      OR: [
+        { source: '/nfse/autorizado' },
+        { source: '/api/NFSe/InserirNFSe' },
+        { source: { contains: '/nfse/autorizado' } },
+      ],
     },
     orderBy: { receivedAt: 'asc' },
     take: NFSE_BATCH_SIZE,
@@ -974,33 +978,66 @@ async function processPendingNfsePostgres(prisma: PrismaClient) {
 
   for (const event of pendingEvents) {
     const start = Date.now();
-    const metadataBase =
-      typeof event.metadata === 'string' && event.metadata.trim().length > 0
-        ? (() => {
-            try {
-              return JSON.parse(event.metadata);
-            } catch {
-              return { rawMetadata: event.metadata };
-            }
-          })()
-        : {};
 
-    await prisma.webhookEvent.update({
-      where: { id: event.id },
-      data: {
-        status: 'processed',
-        processedAt: new Date(),
-        integrationStatus: 'integrated',
-        processingTimeMs: Date.now() - start,
-        metadata: JSON.stringify({
-          ...metadataBase,
-          workerMode: 'postgres_local_sem_legacy',
-          workerService: 'nfseSync',
-          observacao:
-            'Integracao externa desativada; evento NFSe mantido em modo local no PostgreSQL.',
-        }).substring(0, 2000),
-      },
-    });
+    try {
+      const metadataBase =
+        typeof event.metadata === 'string' && event.metadata.trim().length > 0
+          ? (() => {
+              try {
+                return JSON.parse(event.metadata);
+              } catch {
+                return { rawMetadata: event.metadata };
+              }
+            })()
+          : {};
+
+      await prisma.webhookEvent.update({
+        where: { id: event.id },
+        data: { status: 'processing' },
+      });
+
+      await prisma.webhookEvent.update({
+        where: { id: event.id },
+        data: {
+          status: 'processed',
+          processedAt: new Date(),
+          integrationStatus: 'integrated',
+          processingTimeMs: Date.now() - start,
+          retryCount: 0,
+          errorMessage: null,
+          metadata: JSON.stringify({
+            ...metadataBase,
+            workerMode: 'postgres_local_sem_legacy',
+            workerService: 'nfseSync',
+            etapa: 'worker_local_processed',
+            observacao:
+              'Integracao externa desativada; evento NFSe mantido em modo local no PostgreSQL.',
+          }).substring(0, 2000),
+        },
+      });
+    } catch (eventError: any) {
+      await prisma.webhookEvent
+        .update({
+          where: { id: event.id },
+          data: {
+            status: 'failed',
+            processedAt: new Date(),
+            integrationStatus: 'failed',
+            retryCount: (event.retryCount ?? 0) + 1,
+            errorMessage: (eventError?.message || 'Falha no processamento local NFSe').substring(
+              0,
+              1000,
+            ),
+            processingTimeMs: Date.now() - start,
+          },
+        })
+        .catch(() => undefined);
+
+      logger.error(
+        { eventId: event.id, source: event.source, error: eventError?.message },
+        'Falha no processamento local de evento NFSe',
+      );
+    }
   }
 }
 

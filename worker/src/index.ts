@@ -242,10 +242,20 @@ async function processBatch() {
     // Em PostgreSQL com legado desligado, manter apenas fluxos explicitamente
     // adaptados para modo seguro, evitando executar domínios ainda dependentes de SQL Server.
     if (IS_POSTGRES && !ENABLE_SQLSERVER_LEGACY) {
+      const safeServices = [
+        'CTE',
+        'CIOT',
+        'NFSE',
+        'CONTAS_PAGAR',
+        'CONTAS_RECEBER',
+        'CONTAS_RECEBER_BAIXA',
+      ].filter((service) => isServiceEnabled(service));
+
       logger.debug(
         {
           isPostgres: IS_POSTGRES,
           enableSqlServerLegacy: ENABLE_SQLSERVER_LEGACY,
+          safeServices,
         },
         'Worker em modo PostgreSQL sem legado: executando somente fluxos adaptados',
       );

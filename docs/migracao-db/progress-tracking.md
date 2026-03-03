@@ -14,8 +14,17 @@
 
 ## Ultimo checkpoint concluido
 
-- Checkpoint: `F5.5-nfse-worker-primeiro-lote-postgres`
+- Checkpoint: `F5.6-worker-orquestracao-postgres-safe`
 - Resultado:
+  - `F5.6-worker-orquestracao-postgres-safe` concluido:
+    - `worker/src/index.ts` consolidado para exibir lista dos servicos seguros habilitados (`safeServices`) no modo PostgreSQL sem legado
+    - padrao de orquestracao local mantido para dominios migrados: `CTE`, `CIOT`, `NFSE`, `CONTAS_PAGAR`, `CONTAS_RECEBER`, `CONTAS_RECEBER_BAIXA`
+    - monitoramento operacional melhorado com log estruturado do conjunto efetivamente executado por ciclo
+  - `F5.5.1-nfse-worker-segundo-lote-postgres` concluido:
+    - fluxo local de NFSe no worker consolidado com transicao de status `pending/processing -> processed` no `WebhookEvent`
+    - cobertura de fontes NFSe alinhada para modo local (`/nfse/autorizado` e `/api/NFSe/InserirNFSe`)
+    - tratamento de falha por evento adicionado com `integrationStatus=failed`, `errorMessage` e incremento de `retryCount`
+    - metadata local padronizada com `etapa=worker_local_processed` para rastreabilidade do pipeline
   - `F5.5-nfse-worker-primeiro-lote-postgres` concluido:
     - `worker/src/services/nfseSync.ts` recebeu guard PostgreSQL-first para bloquear caminho SQL Server/Senior quando `ENABLE_SQLSERVER_LEGACY=false`
     - no modo local, `processPendingNfse` processa eventos pendentes de NFSe via `WebhookEvent` com sucesso controlado (`integrationStatus=integrated`)
@@ -208,6 +217,7 @@
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/index.ts worker/src/services/cteSync.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/cteIntegration.ts worker/src/services/cteSync.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/ciotSync.ts` OK
+  - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/nfseSync.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/nfseSync.ts worker/src/index.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/contasPagarSync.ts worker/src/index.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/contasReceberSync.ts worker/src/index.ts` OK
@@ -223,13 +233,13 @@
 
 ## Proximo checkpoint
 
-- Checkpoint alvo: `F5.5.1-nfse-worker-segundo-lote-postgres`
+- Checkpoint alvo: `F6.1-feature-flags-hardening-cross-domain`
 - Objetivo:
-  - consolidar fluxo NFSe local no worker com status de `WebhookEvent` alinhado ao processamento final
-  - reduzir dependencias de SQL dinâmico residual em `nfseSync` no caminho principal de operacao local
+  - consolidar comportamento de flags globais (`ENABLE_SQLSERVER_LEGACY`, `ENABLE_EXTERNAL_EXPORT`, `ENABLE_EXTERNAL_IMPORT`, `ENABLE_SENIOR_INTEGRATION`) entre backend e worker
+  - padronizar respostas/logs de bypass para todos os dominios migrados
 - Criterio de aceite:
-  - fluxo local de NFSe permanece sem chamadas SQL Server quando legado estiver desligado
-  - status/metadata de `WebhookEvent` permanecem consistentes entre ingestao e worker
+  - bypass controlado e observavel em todos os dominios migrados com flags desligadas
+  - sem regressao no `typecheck/lint` de backend e worker
   - validacao por logs sem erro critico de procedure/objeto SQL Server
 
 ## Checkpoints concluídos (historico resumido)
