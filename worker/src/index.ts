@@ -259,6 +259,14 @@ async function processBatch() {
         await processPendingCiot(prisma);
       }
 
+      if (isServiceEnabled('NFSE')) {
+        await processPendingNfse(prisma);
+      }
+
+      if (isServiceEnabled('CONTAS_PAGAR')) {
+        await processPendingContasPagar(prisma);
+      }
+
       if (isServiceEnabled('CONTAS_RECEBER')) {
         await processPendingContasReceber(prisma);
       }

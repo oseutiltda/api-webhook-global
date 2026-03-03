@@ -89,6 +89,8 @@ const NFSE_SOURCE_DATABASE = process.env.NFSE_SOURCE_DATABASE || 'AFS_INTEGRADOR
 const NFSE_DESTINATION_DATABASE = process.env.NFSE_DESTINATION_DATABASE || env.SENIOR_DATABASE;
 const NFSE_TABLE = `[${NFSE_SOURCE_DATABASE}].[dbo].[nfse]`;
 const NFSE_DEST_PREFIX = `[${NFSE_DESTINATION_DATABASE}].[dbo]`;
+const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
+const ENABLE_SQLSERVER_LEGACY = env.ENABLE_SQLSERVER_LEGACY;
 
 /**
  * Calcula o CdEmpresa baseado no CNPJ do prestador
@@ -950,7 +952,64 @@ async function processSingleNfse(prisma: PrismaClient, nfseId: number) {
   return prisma.$transaction(async (tx) => insertIntoDestination(tx, nfseId));
 }
 
+async function processPendingNfsePostgres(prisma: PrismaClient) {
+  const pendingEvents = await prisma.webhookEvent.findMany({
+    where: {
+      status: 'pending',
+      OR: [{ source: { contains: '/nfse/autorizado' } }, { source: { contains: '/NFSe/' } }],
+    },
+    orderBy: { receivedAt: 'asc' },
+    take: NFSE_BATCH_SIZE,
+  });
+
+  if (pendingEvents.length === 0) {
+    logger.debug('Nenhum evento NFSe pendente para processamento local');
+    return;
+  }
+
+  logger.info(
+    { count: pendingEvents.length },
+    'Processando NFSe em modo PostgreSQL local (sem SQL Server/Senior)',
+  );
+
+  for (const event of pendingEvents) {
+    const start = Date.now();
+    const metadataBase =
+      typeof event.metadata === 'string' && event.metadata.trim().length > 0
+        ? (() => {
+            try {
+              return JSON.parse(event.metadata);
+            } catch {
+              return { rawMetadata: event.metadata };
+            }
+          })()
+        : {};
+
+    await prisma.webhookEvent.update({
+      where: { id: event.id },
+      data: {
+        status: 'processed',
+        processedAt: new Date(),
+        integrationStatus: 'integrated',
+        processingTimeMs: Date.now() - start,
+        metadata: JSON.stringify({
+          ...metadataBase,
+          workerMode: 'postgres_local_sem_legacy',
+          workerService: 'nfseSync',
+          observacao:
+            'Integracao externa desativada; evento NFSe mantido em modo local no PostgreSQL.',
+        }).substring(0, 2000),
+      },
+    });
+  }
+}
+
 export async function processPendingNfse(prisma: PrismaClient) {
+  if (IS_POSTGRES && !ENABLE_SQLSERVER_LEGACY) {
+    await processPendingNfsePostgres(prisma);
+    return;
+  }
+
   try {
     // Buscar notas pendentes (processed = 0), incluindo notas canceladas
     // Notas canceladas também precisam ser processadas para atualizar o status de cancelamento

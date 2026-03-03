@@ -14,8 +14,20 @@
 
 ## Ultimo checkpoint concluido
 
-- Checkpoint: `F5.4.5-contas-receber-worker-bypass-postgres`
+- Checkpoint: `F5.5-nfse-worker-primeiro-lote-postgres`
 - Resultado:
+  - `F5.5-nfse-worker-primeiro-lote-postgres` concluido:
+    - `worker/src/services/nfseSync.ts` recebeu guard PostgreSQL-first para bloquear caminho SQL Server/Senior quando `ENABLE_SQLSERVER_LEGACY=false`
+    - no modo local, `processPendingNfse` processa eventos pendentes de NFSe via `WebhookEvent` com sucesso controlado (`integrationStatus=integrated`)
+    - metadata de `WebhookEvent` enriquecida com `workerMode=postgres_local_sem_legacy` e identificacao do servico
+    - caminho legado SQL Server/Senior preservado para cenarios fora do modo local
+  - `worker/src/index.ts` ajustado para executar `NFSE` tambem no modo PostgreSQL seguro
+  - `F5.4.6-contas-pagar-worker-bypass-postgres` concluido:
+    - `worker/src/services/contasPagarSync.ts` adaptado para caminho PostgreSQL-first quando `ENABLE_SQLSERVER_LEGACY=false`
+    - no modo local, o worker nao executa procedures SQL Server para Contas a Pagar e processa pendencias de `WebhookEvent` com sucesso controlado (`integrationStatus=integrated`)
+    - metadata de `WebhookEvent` enriquecida com `workerMode=postgres_local_sem_legacy` e identificacao do servico
+    - caminho legado SQL Server/Senior preservado para cenarios fora do modo local
+  - `worker/src/index.ts` ajustado para executar `CONTAS_PAGAR` tambem no modo PostgreSQL seguro
   - `F5.4.5-contas-receber-worker-bypass-postgres` concluido:
     - `worker/src/services/contasReceberSync.ts` adaptado para caminho PostgreSQL-first quando `ENABLE_SQLSERVER_LEGACY=false`
     - no modo local, o worker nao executa procedures SQL Server para Contas a Receber e processa pendencias de `WebhookEvent` com sucesso controlado (`integrationStatus=integrated`)
@@ -167,6 +179,8 @@
     - `dev.sh` agora tenta matar automaticamente listeners em `3000/3001` do mesmo usuario antes de abortar por porta ocupada
     - `backend/src/server.ts` atualizado para respeitar `HOST` (fallback `0.0.0.0`)
 - Evidencias:
+  - `worker/src/services/nfseSync.ts`
+  - `worker/src/services/contasPagarSync.ts`
   - `worker/src/services/contasReceberSync.ts`
   - `worker/src/services/contasReceberBaixaSync.ts`
   - `worker/src/index.ts`
@@ -194,6 +208,8 @@
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/index.ts worker/src/services/cteSync.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/cteIntegration.ts worker/src/services/cteSync.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/ciotSync.ts` OK
+  - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/nfseSync.ts worker/src/index.ts` OK
+  - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/contasPagarSync.ts worker/src/index.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/contasReceberSync.ts worker/src/index.ts` OK
   - `worker`: `./worker/node_modules/.bin/prettier --write worker/src/services/contasReceberBaixaSync.ts worker/src/index.ts` OK
   - `worker`: `npm run typecheck` OK
@@ -207,14 +223,14 @@
 
 ## Proximo checkpoint
 
-- Checkpoint alvo: `F5.4.6-contas-pagar-worker-bypass-postgres`
+- Checkpoint alvo: `F5.5.1-nfse-worker-segundo-lote-postgres`
 - Objetivo:
-  - migrar `worker/src/services/contasPagarSync.ts` para caminho PostgreSQL-first
-  - eliminar dependencia de SQL Server/Senior no processamento principal de Contas a Pagar no worker
+  - consolidar fluxo NFSe local no worker com status de `WebhookEvent` alinhado ao processamento final
+  - reduzir dependencias de SQL dinâmico residual em `nfseSync` no caminho principal de operacao local
 - Criterio de aceite:
-  - worker processa Contas a Pagar pendentes sem chamadas SQL Server no modo local
-  - status/metadata de `WebhookEvent` atualizados com integracao local controlada
-  - validacao por smoke + logs sem erro critico de procedure/objeto SQL Server
+  - fluxo local de NFSe permanece sem chamadas SQL Server quando legado estiver desligado
+  - status/metadata de `WebhookEvent` permanecem consistentes entre ingestao e worker
+  - validacao por logs sem erro critico de procedure/objeto SQL Server
 
 ## Checkpoints concluídos (historico resumido)
 
