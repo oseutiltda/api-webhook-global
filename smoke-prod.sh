@@ -65,7 +65,7 @@ run_test \
   "200|201|202|400|500" \
   "POST" \
   "$BASE_URL/webhooks/cte/autorizado" \
-  '{"id":"evt-smoke-001","authorization_number":7001002,"status":"AUTORIZADO","xml":"<cte/>","event_xml":null}' \
+  '{"id":9901002,"authorization_number":7001002,"status":"AUTORIZADO","xml":"<cte/>","event_xml":null}' \
   -H "Content-Type: application/json" \
   -H "x-webhook-secret: $WEBHOOK_SECRET" \
   -H "x-event-id: evt-smoke-001"
@@ -76,7 +76,7 @@ run_test \
   "200" \
   "POST" \
   "$BASE_URL/webhooks/cte/autorizado" \
-  '{"id":"evt-smoke-001","authorization_number":7001002,"status":"AUTORIZADO","xml":"<cte/>","event_xml":null}' \
+  '{"id":9901002,"authorization_number":7001002,"status":"AUTORIZADO","xml":"<cte/>","event_xml":null}' \
   -H "Content-Type: application/json" \
   -H "x-webhook-secret: $WEBHOOK_SECRET" \
   -H "x-event-id: evt-smoke-001"
