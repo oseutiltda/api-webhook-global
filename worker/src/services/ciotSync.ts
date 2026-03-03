@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { inserirContasPagarCIOT } from './ciotIntegration';
 import { buildWorkerBypassMetadata, isPostgresSafeMode } from '../utils/integrationMode';
+import { processEvent } from './processor';
 import type {
   Manifest,
   ManifestParcelas,
@@ -12,6 +13,35 @@ import type {
 const CIOT_BATCH_SIZE = Number(process.env.CIOT_WORKER_BATCH_SIZE ?? '3');
 const CIOT_SOURCE_DATABASE = process.env.CIOT_SOURCE_DATABASE || 'AFS_INTEGRADOR';
 const CIOT_TABLE = `[${CIOT_SOURCE_DATABASE}].[dbo].[manifests]`;
+const CIOT_WEBHOOK_SOURCES = ['/api/CIOT/InserContasPagarCIOT', '/api/CIOT/InserirContasPagarCIOT'];
+const CIOT_CANCEL_WEBHOOK_SOURCE = '/api/CIOT/CancelarContasPagarCIOT';
+
+const parseMetadata = (raw: string | null): Record<string, any> => {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, any>;
+    return parsed ?? {};
+  } catch {
+    return {};
+  }
+};
+
+const resolveCiotEventProcessId = (eventId: string, metadata: Record<string, any>): string => {
+  const manifestId = metadata.manifestId;
+  if (typeof manifestId === 'string' && manifestId.trim().length > 0) {
+    return manifestId.trim();
+  }
+  if (typeof manifestId === 'number' && Number.isFinite(manifestId)) {
+    return String(manifestId);
+  }
+
+  if (eventId.startsWith('ciot-')) {
+    const candidate = eventId.slice(5).trim();
+    if (candidate.length > 0) return candidate;
+  }
+
+  return eventId;
+};
 
 type RawRow = Record<string, any>;
 
@@ -914,10 +944,91 @@ const processManifest = async (prisma: PrismaClient, manifestId: number) => {
 
 export async function processPendingCiot(prisma: PrismaClient) {
   if (isPostgresSafeMode()) {
+    const ciotEvents = await prisma.webhookEvent.findMany({
+      where: {
+        source: { in: [...CIOT_WEBHOOK_SOURCES, CIOT_CANCEL_WEBHOOK_SOURCE] },
+        OR: [{ integrationStatus: null }, { integrationStatus: 'failed' }],
+      },
+      orderBy: { receivedAt: 'asc' },
+      take: CIOT_BATCH_SIZE,
+    });
+
+    if (ciotEvents.length === 0) {
+      logger.debug(
+        buildWorkerBypassMetadata('ciotSync', { reason: 'no_pending_local_events' }),
+        'Nenhum evento CIOT local pendente para sincronizacao no modo seguro',
+      );
+      return;
+    }
+
     logger.info(
-      buildWorkerBypassMetadata('ciotSync', { reason: 'legacy_flow_disabled' }),
-      'Processamento CIOT legado desativado em modo PostgreSQL',
+      buildWorkerBypassMetadata('ciotSync', {
+        reason: 'local_event_sync',
+        pendingEvents: ciotEvents.length,
+      }),
+      'Processando eventos CIOT locais no modo PostgreSQL seguro',
     );
+
+    for (const event of ciotEvents) {
+      const startedAt = Date.now();
+      const metadata = parseMetadata(event.metadata);
+
+      if (event.source === CIOT_CANCEL_WEBHOOK_SOURCE) {
+        await prisma.webhookEvent.update({
+          where: { id: event.id },
+          data: {
+            integrationStatus: 'skipped',
+            integrationTimeMs: Date.now() - startedAt,
+            processedAt: event.processedAt ?? new Date(),
+            metadata: JSON.stringify({
+              ...metadata,
+              ...buildWorkerBypassMetadata('ciotSync', { reason: 'cancel_event_local_skip' }),
+            }).substring(0, 2000),
+          },
+        });
+        continue;
+      }
+
+      const processId = resolveCiotEventProcessId(event.id, metadata);
+      const result = await processEvent(processId, '/ctrb/ciot/parcelas');
+      const integrationTimeMs = Date.now() - startedAt;
+
+      if (result.success) {
+        await prisma.webhookEvent.update({
+          where: { id: event.id },
+          data: {
+            integrationStatus: 'integrated',
+            integrationTimeMs,
+            processedAt: event.processedAt ?? new Date(),
+            errorMessage: null,
+            metadata: JSON.stringify({
+              ...metadata,
+              ciotProcessId: processId,
+              recordsProcessed: result.recordsProcessed ?? 0,
+              ...buildWorkerBypassMetadata('ciotSync', { reason: 'local_sync_success' }),
+            }).substring(0, 2000),
+          },
+        });
+      } else {
+        await prisma.webhookEvent.update({
+          where: { id: event.id },
+          data: {
+            integrationStatus: 'failed',
+            integrationTimeMs,
+            errorMessage: (result.error || 'Falha ao processar CIOT local').substring(0, 1000),
+            metadata: JSON.stringify({
+              ...metadata,
+              ciotProcessId: processId,
+              ...buildWorkerBypassMetadata('ciotSync', {
+                reason: 'local_sync_failed',
+                error: result.error || 'unknown',
+              }),
+            }).substring(0, 2000),
+          },
+        });
+      }
+    }
+
     return;
   }
 

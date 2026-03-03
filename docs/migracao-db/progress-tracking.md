@@ -14,8 +14,18 @@
 
 ## Ultimo checkpoint concluido
 
-- Checkpoint: `F5.3.2-ciot-backend-bypass-postgres`
+- Checkpoint: `F5.3.3-ciot-worker-local-sync-safe-mode`
 - Resultado:
+  - `F5.3.3-ciot-worker-local-sync-safe-mode` concluido:
+    - `worker/src/services/ciotSync.ts` deixou de apenas retornar no modo seguro e passou a sincronizar eventos CIOT locais (`/api/CIOT/InserirContasPagarCIOT`) para pipeline interno do worker
+    - para eventos de insercao/atualizacao:
+      - resolve `manifestId` a partir de `metadata`/`eventId`
+      - executa `processEvent(..., '/ctrb/ciot/parcelas')`
+      - atualiza `WebhookEvent.integrationStatus` para `integrated`/`failed` com `integrationTimeMs` e metadata padronizada
+    - para eventos de cancelamento (`/api/CIOT/CancelarContasPagarCIOT`):
+      - aplica `integrationStatus='skipped'` com motivo controlado em metadata (cancelamento local)
+    - observabilidade CIOT no worker padronizada com `buildWorkerBypassMetadata('ciotSync', ...)`
+  - `F5.3.2-ciot-backend-bypass-postgres` concluido:
   - `F5.3.2-ciot-backend-bypass-postgres` concluido:
     - `backend/src/services/ciotService.ts` recebeu caminho PostgreSQL-first no modo seguro (`isPostgresSafeMode`)
     - insercao/atualizacao CIOT no backend agora persiste localmente via Prisma em:
@@ -272,14 +282,14 @@
 
 ## Proximo checkpoint
 
-- Checkpoint alvo: `F5.3.3-ciot-smoke-e2e-local`
+- Checkpoint alvo: `F5.3.4-ciot-smoke-evidencias-de-banco`
 - Objetivo:
-  - validar fim-a-fim do dominio CIOT no modo local seguro (API inserir/atualizar/cancelar + persistencia)
-  - registrar evidencias de comportamento idempotente e resposta controlada para alimentar rollout por dominio
+  - consolidar evidencias funcionais do dominio CIOT no modo local seguro (API + worker + persistencia final)
+  - documentar consulta de banco e logs para fechar ciclo de migracao do dominio CIOT
 - Criterio de aceite:
-  - smoke local de CIOT com sucesso para criar/atualizar/cancelar
-  - confirmacao no banco das tabelas `CiotParcela`, `CiotParcelaItem` e `CiotFaturamento`
-  - logs sem erro critico de procedure/objeto SQL Server durante os testes
+  - smoke local de CIOT com sucesso para criar/atualizar/cancelar via `smoke-ciot.sh`
+  - confirmacao em banco das tabelas de staging/final CIOT apos execucao do worker
+  - logs sem erro critico de procedure/objeto SQL Server no modo seguro
   - sem regressao no `typecheck/lint` de backend e worker
 
 ## Checkpoints concluídos (historico resumido)
