@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import type { CteData } from '../types/cte';
 import { obterProximoNrSeqControle } from '../utils/nrSeqControle';
 import { env } from '../config/env';
+import { buildWorkerBypassMetadata, isPostgresSafeMode } from '../utils/integrationMode';
 import {
   extrairCepRemetente,
   extrairCepDestinatario,
@@ -23,8 +24,7 @@ type PrismaExecutor = PrismaClient | Prisma.TransactionClient;
 const SENIOR_DATABASE = env.SENIOR_DATABASE;
 // Banco de dados AFS_Integrador (onde está a tabela EmpresaSenior)
 const AFS_INTEGRADOR_DATABASE = 'AFS_Integrador';
-const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
-const shouldBypassCteSeniorLegacy = (): boolean => IS_POSTGRES && !env.ENABLE_SQLSERVER_LEGACY;
+const shouldBypassCteSeniorLegacy = (): boolean => isPostgresSafeMode();
 
 const toSqlValue = (value: any): string => {
   if (value === null || value === undefined) return 'NULL';
@@ -172,9 +172,9 @@ export const buildCdEmpresaFromCnpj = async (
   prisma: PrismaExecutor,
   cnpj: string | null | undefined,
 ): Promise<number> => {
-  if (IS_POSTGRES && !env.ENABLE_SQLSERVER_LEGACY) {
+  if (shouldBypassCteSeniorLegacy()) {
     logger.debug(
-      { cnpj, isPostgres: IS_POSTGRES, enableSqlServerLegacy: env.ENABLE_SQLSERVER_LEGACY },
+      { cnpj, ...buildWorkerBypassMetadata('cteIntegration') },
       'Lookup de empresa Senior por CNPJ desativado em modo PostgreSQL; usando fallback 300',
     );
     return 300;
@@ -212,7 +212,7 @@ export const obterCdTpDoctoFiscalPorEmpresa = async (
 ): Promise<number> => {
   logger.info({ cdEmpresa }, 'Calculando cdTpDoctoFiscal para CT-e');
 
-  if (IS_POSTGRES && !env.ENABLE_SQLSERVER_LEGACY) {
+  if (shouldBypassCteSeniorLegacy()) {
     // Em modo PostgreSQL, evitar leitura no banco legado e aplicar regra direta por cdEmpresa.
     if ([300, 302, 303, 304, 305, 306, 307].includes(cdEmpresa)) {
       return 300;
@@ -1408,7 +1408,7 @@ const alterarXMLProcessado = async (prisma: PrismaExecutor, external_id: number)
       data: { processed: true },
     });
     logger.info(
-      { external_id, isPostgres: IS_POSTGRES, enableSqlServerLegacy: env.ENABLE_SQLSERVER_LEGACY },
+      { external_id, ...buildWorkerBypassMetadata('cteIntegration') },
       'CT-e marcado como processado no banco local (modo PostgreSQL sem legado)',
     );
     return;
@@ -1438,8 +1438,7 @@ export async function cancelarCte(
       {
         cdEmpresa,
         nrSeqControle,
-        isPostgres: IS_POSTGRES,
-        enableSqlServerLegacy: env.ENABLE_SQLSERVER_LEGACY,
+        ...buildWorkerBypassMetadata('cteIntegration'),
       },
       'Cancelamento de CT-e no Senior ignorado em modo PostgreSQL sem legado',
     );
@@ -1712,8 +1711,7 @@ export async function inserirContasReceberCTe(
       {
         external_id: cte.external_id,
         authorization_number: cte.authorization_number,
-        isPostgres: IS_POSTGRES,
-        enableSqlServerLegacy: env.ENABLE_SQLSERVER_LEGACY,
+        ...buildWorkerBypassMetadata('cteIntegration'),
       },
       'Integração CT-e com Senior desativada em PostgreSQL; CT-e marcado como processado localmente',
     );

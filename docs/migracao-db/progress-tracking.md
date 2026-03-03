@@ -14,8 +14,33 @@
 
 ## Ultimo checkpoint concluido
 
-- Checkpoint: `F6.1-feature-flags-hardening-cross-domain`
+- Checkpoint: `F5.3.2-ciot-backend-bypass-postgres`
 - Resultado:
+  - `F5.3.2-ciot-backend-bypass-postgres` concluido:
+    - `backend/src/services/ciotService.ts` recebeu caminho PostgreSQL-first no modo seguro (`isPostgresSafeMode`)
+    - insercao/atualizacao CIOT no backend agora persiste localmente via Prisma em:
+      - `CiotParcela` (manifesto base)
+      - `CiotParcelaItem` (parcelas vinculadas)
+      - `CiotFaturamento` (faturamento 1:1)
+    - cancelamento CIOT no backend agora aplica update local por `nrciot` sem chamar procedure SQL Server no modo seguro
+    - logs/metadados de bypass padronizados com `buildBypassMetadata('ciotService', ...)`
+    - caminho legado SQL Server/stored procedures foi preservado para cenarios fora do modo seguro
+    - script de smoke CIOT preparado na raiz para acelerar validacao funcional do proximo checkpoint:
+      - `smoke-ciot.sh` (create/update/cancel via `/api/CIOT/*`)
+    - validacao obrigatoria executada sem regressao:
+      - backend: `npm run lint` (warnings preexistentes) e `npm run typecheck` OK
+      - worker: `npm run lint` (warnings preexistentes) e `npm run typecheck` OK
+  - `F6.2-bypass-observabilidade-padrao` concluido:
+    - padronizacao de bypass/observabilidade aplicada nos pontos remanescentes de dominio:
+      - backend: `backend/src/services/pessoaService.ts`
+      - worker: `worker/src/services/ciotSync.ts`, `worker/src/services/cteSync.ts`, `worker/src/services/cteIntegration.ts`
+    - bypasses restantes passaram a usar utilitario unificado:
+      - backend: `isPostgresSafeMode` + `buildBypassMetadata`
+      - worker: `isPostgresSafeMode` + `buildWorkerBypassMetadata`
+    - nomenclatura de metadata/log consolidada para `postgres_local_safe` nos servicos ajustados
+    - validacao obrigatoria executada sem regressao:
+      - backend: `npm run lint` (warnings preexistentes) e `npm run typecheck` OK
+      - worker: `npm run lint` (warnings preexistentes) e `npm run typecheck` OK
   - `F6.1-feature-flags-hardening-cross-domain` concluido:
     - flags globais alinhadas entre backend e worker para modo seguro: `ENABLE_SQLSERVER_LEGACY`, `ENABLE_SENIOR_INTEGRATION`, `ENABLE_EXTERNAL_EXPORT`, `ENABLE_EXTERNAL_IMPORT`
     - utilitarios de modo de integracao criados para padronizar condicao de bypass e metadata:
@@ -247,14 +272,15 @@
 
 ## Proximo checkpoint
 
-- Checkpoint alvo: `F6.2-bypass-observabilidade-padrao`
+- Checkpoint alvo: `F5.3.3-ciot-smoke-e2e-local`
 - Objetivo:
-  - padronizar payload de observabilidade (campos e chaves) entre backend e worker para todos os bypasses locais
-  - reduzir variacoes de nomenclatura de modo (`postgres_local_sem_legacy` vs `postgres_local_safe`) em logs/metadados remanescentes
+  - validar fim-a-fim do dominio CIOT no modo local seguro (API inserir/atualizar/cancelar + persistencia)
+  - registrar evidencias de comportamento idempotente e resposta controlada para alimentar rollout por dominio
 - Criterio de aceite:
-  - metadados de bypass com estrutura uniforme em dominios migrados
+  - smoke local de CIOT com sucesso para criar/atualizar/cancelar
+  - confirmacao no banco das tabelas `CiotParcela`, `CiotParcelaItem` e `CiotFaturamento`
+  - logs sem erro critico de procedure/objeto SQL Server durante os testes
   - sem regressao no `typecheck/lint` de backend e worker
-  - validacao por logs sem erro critico de procedure/objeto SQL Server
 
 ## Checkpoints concluídos (historico resumido)
 

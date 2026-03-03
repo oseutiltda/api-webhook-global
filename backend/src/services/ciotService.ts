@@ -1,9 +1,158 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
-import type { ContasPagarCIOT, Manifest, ManifestParcelas, ManifestFaturamento } from '../schemas/ciot';
+import type {
+  ContasPagarCIOT,
+  Manifest,
+  ManifestParcelas,
+  ManifestFaturamento,
+} from '../schemas/ciot';
 import { createOrUpdateWebhookEvent, generateCiotEventId } from '../utils/webhookEvent';
+import { buildBypassMetadata, isPostgresSafeMode } from '../utils/integrationMode';
 
 const prisma = new PrismaClient();
+
+const toSafeString = (value: string | number | null | undefined, fallback = ''): string => {
+  if (value === null || value === undefined) return fallback;
+  const str = String(value);
+  return str.length ? str : fallback;
+};
+
+const toSafeNumber = (value: number | string | null | undefined, fallback = 0): number => {
+  if (value === null || value === undefined || value === '') return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const toNullableString = (value: string | number | null | undefined): string | null => {
+  if (value === null || value === undefined) return null;
+  const str = String(value);
+  return str.length ? str : null;
+};
+
+const toNullableNumber = (value: number | string | null | undefined): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildLocalManifestId = (manifest: Manifest): string => {
+  if (manifest.id) return toSafeString(manifest.id);
+  return `ciot-${toSafeString(manifest.nrciot, 'sem-ciot')}-${toSafeString(manifest.cdempresa, '0')}-${toSafeString(manifest.cdcartafrete, '0')}`;
+};
+
+const toLocalCiotParcelaData = (manifest: Manifest, manifestId: string): any => {
+  const today = new Date().toISOString().split('T')[0] ?? '';
+  return {
+    id: manifestId,
+    nrciot: toSafeString(manifest.nrciot),
+    cdempresa: toSafeString(manifest.cdempresa),
+    cdcartafrete: toSafeString(manifest.cdcartafrete),
+    nrcgccpfprop: toSafeString(manifest.nrcgccpfprop),
+    tpformapagamentocontratado: '',
+    nrformapagamentocontratado: '',
+    nrcgccpfmot: toSafeString(manifest.nrcgccpfmot),
+    tpformapagamentomotorista: '',
+    nrformapagamentomotorista: '',
+    tpformapagamentosubcontratado: '',
+    nrformapagamentosubcontratado: '',
+    dtemissao: toSafeString(manifest.dtemissao, today),
+    vlcarga: toNullableNumber(manifest.vlcarga),
+    qtpesocarga: toNullableNumber(manifest.qtpesocarga),
+    nrmanifesto: toSafeString(manifest.nrmanifesto),
+    nrplaca: toSafeString(manifest.nrplaca),
+    nrceporigem: toSafeString(manifest.nrceporigem),
+    nrcepdestino: toSafeString(manifest.nrcepdestino),
+    fgemitida: toNullableNumber(manifest.fgemitida),
+    dtliberacaopagto: toNullableString(manifest.dtliberacaopagto),
+    cdcentrocusto: toNullableString(manifest.cdcentrocusto),
+    insituacao: toSafeNumber(manifest.insituacao),
+    cdcondicaovencto: toSafeNumber(manifest.cdcondicaovencto),
+    dsobservacao: toNullableString(manifest.dsobservacao),
+    cdtipotransporte: toNullableString(manifest.cdtipotransporte),
+    cdremetente: toSafeString(manifest.cdremetente),
+    cddestinatario: toSafeString(manifest.cddestinatario),
+    cdnaturezacarga: toSafeString(manifest.cdnaturezacarga),
+    cdespeciecarga: toSafeString(manifest.cdespeciecarga),
+    clmercadoria: toNullableString(manifest.clmercadoria),
+    qtpeso: toNullableNumber(manifest.qtpeso),
+    cdempresaconhec: toNullableString(manifest.cdempresaconhec),
+    nrseqcontrole: toNullableString(manifest.nrseqcontrole),
+    nrnotafiscal: toSafeString(manifest.nrnotafiscal),
+    cdhistorico: toNullableString(manifest.cdhistorico),
+    dsusuarioinc: toSafeString(manifest.dsusuarioinc),
+    dsusuariocanc: toNullableString(manifest.dsusuariocanc),
+    dtinclusao: toSafeString(manifest.dtinclusao, today),
+    dtcancelamento: toNullableString(manifest.dtcancelamento),
+    intipoorigem: toSafeString(manifest.intipoorigem),
+    nrplacareboque1: toSafeString(manifest.nrplacareboque1),
+    nrplacareboque2: toNullableString(manifest.nrplacareboque2),
+    nrplacareboque3: toNullableString(manifest.nrplacareboque3),
+    cdtarifa: toSafeNumber(manifest.cdtarifa),
+    dsusuarioacerto: toNullableString(manifest.dsusuarioacerto),
+    dtacerto: toNullableString(manifest.dtacerto),
+    cdinscricaocomp: toNullableString(manifest.cdinscricaocomp),
+    nrseriecomp: toNullableString(manifest.nrseriecomp),
+    nrcomprovante: toNullableString(manifest.nrcomprovante),
+    vlfrete: toSafeNumber(manifest.vlfrete),
+    insestsenat: toNullableNumber(manifest.insestsenat),
+    cdmotivocancelamento: toNullableString(manifest.cdmotivocancelamento),
+    dsobscancelamento: toNullableString(manifest.dsobscancelamento),
+    inveiculoproprio: toSafeNumber(manifest.inveiculoproprio),
+    dsusuarioimpressao: toNullableString(manifest.dsusuarioimpressao),
+    dtimpressao: toNullableString(manifest.dtimpressao),
+    dtprazomaxentrega: toSafeString(manifest.dtprazomaxentrega, today),
+    nrseloautenticidade: toNullableString(manifest.nrseloautenticidade),
+    hrmaxentrega: toNullableString(manifest.hrmaxentrega),
+    cdvinculacaoiss: toNullableString(manifest.cdvinculacaoiss),
+    dthrretornociot: toNullableString(manifest.dthrretornociot),
+    cdciot: toNullableString(manifest.cdciot),
+    serie: toSafeNumber(manifest.serie),
+    cdmsgretornociot: toNullableString(manifest.cdmsgretornociot),
+    dsmsgretornociot: toNullableString(manifest.dsmsgretornociot),
+    inenvioarquivociot: toNullableNumber(manifest.inenvioarquivociot),
+    dsavisotransportador: toNullableString(manifest.dsavisotransportador),
+    nrprotocolocancciot: toNullableString(manifest.nrprotocolocancciot),
+    cdndot: toNullableString(manifest.cdndot),
+    nrprotocoloautndot: toNullableString(manifest.nrprotocoloautndot),
+    inoperacaoperiodo: toNullableNumber(manifest.inoperacaoperiodo),
+    vlfreteestimado: toNullableNumber(manifest.vlfreteestimado),
+    inoperacaodistribuicao: toSafeNumber(manifest.inoperacaodistribuicao),
+    nrprotocoloenctociot: toNullableString(manifest.nrprotocoloenctociot),
+    indotimpresso: toNullableString(manifest.indotimpresso),
+    inveiculo: toSafeNumber(manifest.inveiculo),
+    cdrota: toSafeString(manifest.cdrota),
+    inoperadorapagtoctrb: toSafeString(manifest.inoperadorapagtoctrb),
+    inrespostaquesttacagreg: toSafeNumber(manifest.inrespostaquesttacagreg),
+    cdmoeda: toNullableString(manifest.cdmoeda),
+    nrprotocolointerroociot: toNullableString(manifest.nrprotocolointerroociot),
+    inretimposto: toNullableString(manifest.inretimposto),
+    cdintersenior: toNullableString(manifest.cdintersenior),
+    nrcodigooperpagtociot: toNullableString(manifest.nrcodigooperpagtociot),
+    cdseqhcm: toNullableString(manifest.cdseqhcm),
+    insitcalcpedagio: toNullableString(manifest.insitcalcpedagio),
+    nrrepom: toNullableString(manifest.nrrepom),
+    vlmanifesto: toSafeNumber(manifest.vlmanifesto),
+    vlcombustivel: toSafeNumber(manifest.vlcombustivel),
+    vlpedagio: toSafeNumber(manifest.vlpedagio),
+    vlnotacreditodebito: toSafeNumber(manifest.vlnotacreditodebito),
+    vldesconto: toSafeNumber(manifest.vldesconto),
+    vlcsll: toSafeNumber(manifest.vlcsll),
+    vlpis: toSafeNumber(manifest.vlpis),
+    vlirff: toSafeNumber(manifest.vlirff),
+    vlinss: toSafeNumber(manifest.vlinss),
+    vltotalmanifesto: toSafeNumber(manifest.vltotalmanifesto),
+    vlabastecimento: toSafeNumber(manifest.vlabastecimento),
+    vladiantamento: toSafeNumber(manifest.vladiantamento),
+    vlir: toSafeNumber(manifest.vlir),
+    vlsaldoapagar: toSafeNumber(manifest.vlsaldoapagar),
+    vlsaldofrete: toSafeNumber(manifest.vlsaldofrete),
+    vlcofins: toSafeNumber(manifest.vlcofins),
+    vlsestsenat: toSafeNumber(manifest.vlsestsenat),
+    vliss: toSafeNumber(manifest.vliss),
+    cdtributacao: toNullableString(manifest.cdtributacao),
+    vlcsl: toSafeNumber(manifest.vlcsl),
+  };
+};
 
 // Helper para converter valores para SQL
 const toSqlValue = (value: any): string => {
@@ -28,7 +177,10 @@ const toSqlNumber = (value: number | null | undefined, defaultValue: number = 0)
 };
 
 // Helper para converter valores para TIME (HH:mm:ss)
-const toSqlTime = (value: string | number | null | undefined, defaultValue = '00:00:00'): string => {
+const toSqlTime = (
+  value: string | number | null | undefined,
+  defaultValue = '00:00:00',
+): string => {
   if (value === null || value === undefined) {
     return `'${defaultValue}'`;
   }
@@ -81,8 +233,7 @@ const findManifestIdByUniqueKeys = async (manifest: Manifest): Promise<number> =
   `;
 
   const fallbackResult = await prisma.$queryRawUnsafe<Array<{ Id: number }>>(fallbackSql);
-  const fallbackId =
-    fallbackResult && fallbackResult[0]?.Id ? Number(fallbackResult[0].Id) : 0;
+  const fallbackId = fallbackResult && fallbackResult[0]?.Id ? Number(fallbackResult[0].Id) : 0;
 
   if (fallbackId > 0) {
     logger.warn(
@@ -92,7 +243,7 @@ const findManifestIdByUniqueKeys = async (manifest: Manifest): Promise<number> =
         cdempresa: manifest.cdempresa,
         cdcartafrete: manifest.cdcartafrete,
       },
-      'Stored procedure retornou 0, mas manifesto existente foi localizado via fallback'
+      'Stored procedure retornou 0, mas manifesto existente foi localizado via fallback',
     );
   }
 
@@ -241,7 +392,10 @@ export async function atualizarManifesto(manifest: Manifest, manifestId: number)
       WHERE Id = ${manifestId};
     `;
 
-    logger.debug({ manifestId, sql: updateSql.substring(0, 500) }, 'Executando UPDATE no manifesto');
+    logger.debug(
+      { manifestId, sql: updateSql.substring(0, 500) },
+      'Executando UPDATE no manifesto',
+    );
 
     await prisma.$executeRawUnsafe(updateSql);
 
@@ -256,14 +410,17 @@ export async function atualizarManifesto(manifest: Manifest, manifestId: number)
  * Insere Manifesto na tabela usando stored procedure
  * Retorna o ID do manifesto inserido e se foi uma inserção nova
  */
-export async function inserirManifesto(manifest: Manifest): Promise<{ id: number; wasNewInsert: boolean }> {
+export async function inserirManifesto(
+  manifest: Manifest,
+): Promise<{ id: number; wasNewInsert: boolean }> {
   try {
     // Verificar ID máximo ANTES de inserir para detectar se foi inserção nova
     const maxIdBeforeSql = `
       SELECT ISNULL(MAX(Id), 0) AS MaxId
       FROM dbo.manifests WITH (NOLOCK);
     `;
-    const maxIdBeforeResult = await prisma.$queryRawUnsafe<Array<{ MaxId: number }>>(maxIdBeforeSql);
+    const maxIdBeforeResult =
+      await prisma.$queryRawUnsafe<Array<{ MaxId: number }>>(maxIdBeforeSql);
     const maxIdBefore = maxIdBeforeResult && maxIdBeforeResult[0] ? maxIdBeforeResult[0].MaxId : 0;
 
     // Se cdespeciecarga estiver vazio, definir como "0"
@@ -383,7 +540,10 @@ export async function inserirManifesto(manifest: Manifest): Promise<{ id: number
       SELECT @ReturnValue AS manifest_id;
     `;
 
-    logger.debug({ sql: sql.substring(0, 500) }, 'Executando stored procedure para inserir manifesto');
+    logger.debug(
+      { sql: sql.substring(0, 500) },
+      'Executando stored procedure para inserir manifesto',
+    );
 
     const result = await prisma.$queryRawUnsafe<Array<{ manifest_id: number }>>(sql);
 
@@ -401,7 +561,7 @@ export async function inserirManifesto(manifest: Manifest): Promise<{ id: number
             cdcartafrete: manifest.cdcartafrete,
             result,
           },
-          'Stored procedure retornou 0 e nenhum manifesto existente foi encontrado'
+          'Stored procedure retornou 0 e nenhum manifesto existente foi encontrado',
         );
         throw new Error('Falha ao inserir manifesto: retorno inválido da stored procedure');
       }
@@ -411,12 +571,12 @@ export async function inserirManifesto(manifest: Manifest): Promise<{ id: number
       if (wasNewInsertViaFallback) {
         logger.info(
           { manifestId: fallbackId, maxIdBefore },
-          'Stored procedure retornou 0, mas registro foi criado recentemente (ID > maxIdBefore), considerando como inserção nova'
+          'Stored procedure retornou 0, mas registro foi criado recentemente (ID > maxIdBefore), considerando como inserção nova',
         );
       } else {
         logger.warn(
           { manifestId: fallbackId, maxIdBefore },
-          'Stored procedure retornou 0 e registro já existia (ID <= maxIdBefore)'
+          'Stored procedure retornou 0 e registro já existia (ID <= maxIdBefore)',
         );
       }
       return { id: fallbackId, wasNewInsert: wasNewInsertViaFallback };
@@ -438,12 +598,21 @@ export async function inserirManifesto(manifest: Manifest): Promise<{ id: number
           SET processed = 0
           WHERE Id = ${id};
         `);
-        logger.debug({ manifestId: id }, 'Campo processed = 0 FORÇADO para registro inserido pelo backend (aguardando processamento pelo worker)');
+        logger.debug(
+          { manifestId: id },
+          'Campo processed = 0 FORÇADO para registro inserido pelo backend (aguardando processamento pelo worker)',
+        );
       } catch (updateError: any) {
         // Não falhar se o campo processed não existir ou houver erro
-        logger.warn({ manifestId: id, error: updateError.message }, 'Erro ao setar processed = 0 (pode ser campo inexistente)');
+        logger.warn(
+          { manifestId: id, error: updateError.message },
+          'Erro ao setar processed = 0 (pode ser campo inexistente)',
+        );
       }
-      logger.info({ manifestId: id, maxIdBefore }, 'Manifesto inserido com sucesso (processed = 0, aguardando worker)');
+      logger.info(
+        { manifestId: id, maxIdBefore },
+        'Manifesto inserido com sucesso (processed = 0, aguardando worker)',
+      );
     }
 
     return { id, wasNewInsert };
@@ -471,14 +640,22 @@ function isValidParcela(parcela: ManifestParcelas): boolean {
 export async function inserirManifestoParcelas(parcela: ManifestParcelas): Promise<void> {
   // Validar se a parcela tem idparcela válido antes de tentar inserir
   if (!isValidParcela(parcela)) {
-    throw new Error(`Parcela inválida: idparcela está vazio ou nulo. Parcela ID: ${parcela.ID || 'N/A'}`);
+    throw new Error(
+      `Parcela inválida: idparcela está vazio ou nulo. Parcela ID: ${parcela.ID || 'N/A'}`,
+    );
   }
 
   try {
     // Tratar strings vazias como NULL para idparcela e dsstatus
-    const idparcela = parcela.idparcela && typeof parcela.idparcela === 'string' && parcela.idparcela.trim() !== '' ? parcela.idparcela : null;
-    const dsstatus = parcela.dsstatus && typeof parcela.dsstatus === 'string' && parcela.dsstatus.trim() !== '' ? parcela.dsstatus : null;
-    
+    const idparcela =
+      parcela.idparcela && typeof parcela.idparcela === 'string' && parcela.idparcela.trim() !== ''
+        ? parcela.idparcela
+        : null;
+    const dsstatus =
+      parcela.dsstatus && typeof parcela.dsstatus === 'string' && parcela.dsstatus.trim() !== ''
+        ? parcela.dsstatus
+        : null;
+
     const sql = `
       EXEC dbo.P_CONTAS_PAGAR_CIOT_MANIFESTO_PARCELAS_ESL_INCLUIR
         @manifest_id = ${parcela.manifest_id ?? 'NULL'},
@@ -505,30 +682,39 @@ export async function inserirManifestoParcelas(parcela: ManifestParcelas): Promi
         @dtvencimento = ${parseDate(parcela.dtvencimento)};
     `;
 
-    logger.debug({ 
-      manifestId: parcela.manifest_id, 
-      parcelaId: parcela.ID, 
-      idparcela: idparcela,
-      dsstatus: dsstatus,
-      sql: sql.substring(0, 500) 
-    }, 'Executando stored procedure para inserir parcela');
+    logger.debug(
+      {
+        manifestId: parcela.manifest_id,
+        parcelaId: parcela.ID,
+        idparcela: idparcela,
+        dsstatus: dsstatus,
+        sql: sql.substring(0, 500),
+      },
+      'Executando stored procedure para inserir parcela',
+    );
 
     await prisma.$executeRawUnsafe(sql);
 
-    logger.info({ 
-      manifestId: parcela.manifest_id,
-      parcelaId: parcela.ID, 
-      idparcela: idparcela,
-      dsstatus: dsstatus
-    }, 'Parcela inserida com sucesso na tabela manifest_parcelas');
+    logger.info(
+      {
+        manifestId: parcela.manifest_id,
+        parcelaId: parcela.ID,
+        idparcela: idparcela,
+        dsstatus: dsstatus,
+      },
+      'Parcela inserida com sucesso na tabela manifest_parcelas',
+    );
   } catch (error: any) {
-    logger.error({ 
-      error: error.message, 
-      stack: error.stack,
-      manifestId: parcela.manifest_id,
-      parcelaId: parcela.ID, 
-      idparcela: parcela.idparcela 
-    }, 'Erro ao inserir parcela na tabela manifest_parcelas');
+    logger.error(
+      {
+        error: error.message,
+        stack: error.stack,
+        manifestId: parcela.manifest_id,
+        parcelaId: parcela.ID,
+        idparcela: parcela.idparcela,
+      },
+      'Erro ao inserir parcela na tabela manifest_parcelas',
+    );
     throw error;
   }
 }
@@ -548,16 +734,107 @@ export async function inserirManifestoFaturamento(faturamento: ManifestFaturamen
         @nrficha = ${toSqlValue(faturamento.nrficha)};
     `;
 
-    logger.debug({ sql: sql.substring(0, 500) }, 'Executando stored procedure para inserir faturamento');
+    logger.debug(
+      { sql: sql.substring(0, 500) },
+      'Executando stored procedure para inserir faturamento',
+    );
 
     await prisma.$executeRawUnsafe(sql);
 
     logger.debug({ faturamentoId: faturamento.ID }, 'Faturamento inserido com sucesso');
   } catch (error: any) {
-    logger.error({ error: error.message, faturamentoId: faturamento.ID }, 'Erro ao inserir faturamento');
+    logger.error(
+      { error: error.message, faturamentoId: faturamento.ID },
+      'Erro ao inserir faturamento',
+    );
     throw error;
   }
 }
+
+const persistCiotLocal = async (
+  data: ContasPagarCIOT,
+): Promise<{ manifestId: string; created: boolean }> => {
+  const manifest = data.Manifest;
+
+  const existing =
+    (manifest.id
+      ? await prisma.ciotParcela.findUnique({ where: { id: manifest.id }, select: { id: true } })
+      : null) ??
+    (await prisma.ciotParcela.findFirst({
+      where: {
+        nrciot: manifest.nrciot,
+        cdempresa: manifest.cdempresa,
+        cdcartafrete: manifest.cdcartafrete,
+      },
+      select: { id: true },
+    }));
+
+  const manifestId = existing?.id ?? buildLocalManifestId(manifest);
+  const created = !existing;
+  const manifestoData = toLocalCiotParcelaData(manifest, manifestId);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.ciotParcela.upsert({
+      where: { id: manifestId },
+      create: manifestoData,
+      update: manifestoData,
+    });
+
+    await tx.ciotParcelaItem.deleteMany({ where: { manifestoId: manifestId } });
+    const parcelas = manifest.parcelas ?? [];
+    if (parcelas.length > 0) {
+      await tx.ciotParcelaItem.createMany({
+        data: parcelas
+          .filter((p): p is ManifestParcelas => Boolean(p) && Boolean(p.idparcela))
+          .map((p) => ({
+            manifestoId: manifestId,
+            idparcela: toSafeString(p.idparcela),
+            nrciotsistema: toSafeString(p.nrciotsistema),
+            nrciot: toSafeString(p.nrciot),
+            dstipo: toSafeString(p.dstipo),
+            dsstatus: toSafeString(p.dsstatus),
+            cdfavorecido: toSafeString(p.cdfavorecido),
+            cdcartafrete: toSafeString(p.cdcartafrete),
+            cdevento: toSafeString(p.cdevento),
+            dtpagto: toSafeString(p.dtpagto),
+            indesconto: toNullableNumber(p.indesconto),
+            vlbasecalculo: toNullableNumber(p.vlbasecalculo),
+            dtrecebimento: toNullableString(p.dtrecebimento),
+            vloriginal: toNullableNumber(p.vloriginal),
+            dtinclusao: toSafeString(p.dtinclusao),
+            hrinclusao: toSafeString(p.hrinclusao),
+            dsusuarioinc: toSafeString(p.dsusuarioinc),
+            dtreferenciacalculo: toSafeString(p.dtreferenciacalculo),
+            dsobservacao: toNullableString(p.dsobservacao),
+            vlprovisionado: toNullableNumber(p.vlprovisionado),
+          })),
+      });
+    }
+
+    if (manifest.dadosFaturamento) {
+      await tx.ciotFaturamento.upsert({
+        where: { manifestoId: manifestId },
+        create: {
+          manifestoId: manifestId,
+          cdempresa: toSafeString(manifest.dadosFaturamento.cdempresa),
+          cdcartafrete: toSafeString(manifest.dadosFaturamento.cdcartafrete),
+          cdempresaFV: toSafeString(manifest.dadosFaturamento.cdempresaFV),
+          nrficha: toNullableString(manifest.dadosFaturamento.nrficha),
+        },
+        update: {
+          cdempresa: toSafeString(manifest.dadosFaturamento.cdempresa),
+          cdcartafrete: toSafeString(manifest.dadosFaturamento.cdcartafrete),
+          cdempresaFV: toSafeString(manifest.dadosFaturamento.cdempresaFV),
+          nrficha: toNullableString(manifest.dadosFaturamento.nrficha),
+        },
+      });
+    } else {
+      await tx.ciotFaturamento.deleteMany({ where: { manifestoId: manifestId } });
+    }
+  });
+
+  return { manifestId, created };
+};
 
 /**
  * Cancela ContasPagarCIOT
@@ -565,8 +842,31 @@ export async function inserirManifestoFaturamento(faturamento: ManifestFaturamen
 export async function cancelarContasPagarCIOT(
   nrciot: string,
   obscancelado: string | null | undefined,
-  dsUsuarioCan: string | null | undefined
+  dsUsuarioCan: string | null | undefined,
 ): Promise<void> {
+  if (isPostgresSafeMode()) {
+    const now = new Date().toISOString();
+    const updated = await prisma.ciotParcela.updateMany({
+      where: { nrciot },
+      data: {
+        dtcancelamento: now,
+        dsusuariocanc: toNullableString(dsUsuarioCan),
+        dsobscancelamento: toNullableString(obscancelado),
+        cdmotivocancelamento: 'CANCELADO_API',
+      },
+    });
+
+    logger.info(
+      {
+        nrciot,
+        updatedCount: updated.count,
+        ...buildBypassMetadata('ciotService', { action: 'cancel' }),
+      },
+      'Cancelamento CIOT aplicado em modo PostgreSQL local',
+    );
+    return;
+  }
+
   try {
     const sql = `
       EXEC dbo.P_INTEGRACAO_SENIOR_CP_CANCELAMENTO_CIOT_ALTERAR
@@ -591,21 +891,69 @@ export async function cancelarContasPagarCIOT(
  */
 export async function inserirContasPagarCIOT(
   data: ContasPagarCIOT,
-  eventId?: string | null
-): Promise<{ status: boolean; mensagem: string; manifestId?: number | null; created?: boolean }> {
+  eventId?: string | null,
+): Promise<{
+  status: boolean;
+  mensagem: string;
+  manifestId?: string | number | null;
+  created?: boolean;
+}> {
   try {
     // Se cancelado = 1, apenas cancelar
     if (data.cancelado === 1) {
-      await cancelarContasPagarCIOT(
-        data.Manifest.nrciot,
-        data.Obscancelado,
-        data.DsUsuarioCan
-      );
+      await cancelarContasPagarCIOT(data.Manifest.nrciot, data.Obscancelado, data.DsUsuarioCan);
       return {
         status: true,
         mensagem: 'Registro cancelado com sucesso!',
         manifestId: null,
         created: false, // Cancelamento é uma atualização
+      };
+    }
+
+    if (isPostgresSafeMode()) {
+      if (!data.Manifest) {
+        return {
+          status: false,
+          mensagem: 'Manifesto não incluído, favor verificar lançamento!',
+          manifestId: null,
+        };
+      }
+
+      const result = await persistCiotLocal(data);
+      const tabelasInseridas = ['CiotParcela', 'CiotParcelaItem', 'CiotFaturamento'];
+
+      logger.info(
+        {
+          manifestId: result.manifestId,
+          nrciot: data.Manifest.nrciot,
+          created: result.created,
+          ...buildBypassMetadata('ciotService', { action: 'upsert_local' }),
+        },
+        'CIOT persistido em modo PostgreSQL local',
+      );
+
+      if (eventId) {
+        await createOrUpdateWebhookEvent(
+          eventId,
+          '/api/CIOT/InserirContasPagarCIOT',
+          'processed',
+          null,
+          {
+            manifestId: result.manifestId,
+            nrciot: data.Manifest.nrciot,
+            tabelasInseridas,
+            ...buildBypassMetadata('ciotService'),
+          },
+        );
+      }
+
+      return {
+        status: true,
+        mensagem: result.created
+          ? 'Registro criado com sucesso!'
+          : 'Registro atualizado com sucesso!',
+        manifestId: result.manifestId,
+        created: result.created,
       };
     }
 
@@ -622,39 +970,47 @@ export async function inserirContasPagarCIOT(
       // Usar uma transação curta APENAS para a verificação de duplicação com lock
       // Isso garante que o lock seja mantido durante a verificação e previne condições de corrida
       // As inserções serão feitas fora da transação (stored procedures fazem commit automático)
-      const checkResult = await prisma.$transaction(async (tx) => {
-        // PRIORIDADE 1: Se external_id foi fornecido, verificar PRIMEIRO por ele (mais específico)
-        if (data.Manifest.id) {
-          const checkByExternalIdSql = `
+      const checkResult = await prisma.$transaction(
+        async (tx) => {
+          // PRIORIDADE 1: Se external_id foi fornecido, verificar PRIMEIRO por ele (mais específico)
+          if (data.Manifest.id) {
+            const checkByExternalIdSql = `
             SELECT TOP 1 Id, external_id
             FROM dbo.manifests WITH (UPDLOCK, ROWLOCK, HOLDLOCK)
             WHERE external_id = ${toSqlValue(data.Manifest.id)}
             ORDER BY Id DESC;
           `;
-          
-          logger.debug(
-            {
-              externalId: data.Manifest.id,
-            },
-            'Verificando duplicação por external_id (prioridade 1)'
-          );
-          
-          const existingByExternalId = await tx.$queryRawUnsafe<Array<{ Id: number; external_id: string | number | null }>>(checkByExternalIdSql);
-          
-          if (existingByExternalId && existingByExternalId.length > 0 && existingByExternalId[0]) {
+
             logger.debug(
               {
-                foundId: existingByExternalId[0].Id,
                 externalId: data.Manifest.id,
               },
-              'Registro encontrado por external_id'
+              'Verificando duplicação por external_id (prioridade 1)',
             );
-            return existingByExternalId;
+
+            const existingByExternalId =
+              await tx.$queryRawUnsafe<Array<{ Id: number; external_id: string | number | null }>>(
+                checkByExternalIdSql,
+              );
+
+            if (
+              existingByExternalId &&
+              existingByExternalId.length > 0 &&
+              existingByExternalId[0]
+            ) {
+              logger.debug(
+                {
+                  foundId: existingByExternalId[0].Id,
+                  externalId: data.Manifest.id,
+                },
+                'Registro encontrado por external_id',
+              );
+              return existingByExternalId;
+            }
           }
-        }
-        
-        // PRIORIDADE 2: Se não encontrou por external_id, verificar por nrciot + cdempresa + cdcartafrete
-        const checkByKeysSql = `
+
+          // PRIORIDADE 2: Se não encontrou por external_id, verificar por nrciot + cdempresa + cdcartafrete
+          const checkByKeysSql = `
           SELECT TOP 1 Id, external_id
           FROM dbo.manifests WITH (UPDLOCK, ROWLOCK, HOLDLOCK)
           WHERE nrciot = ${toSqlValue(data.Manifest.nrciot)}
@@ -662,32 +1018,41 @@ export async function inserirContasPagarCIOT(
             AND cdcartafrete = ${toSqlValue(data.Manifest.cdcartafrete)}
           ORDER BY Id DESC;
         `;
-        
-        logger.debug(
-          {
-            nrciot: data.Manifest.nrciot,
-            cdempresa: data.Manifest.cdempresa,
-            cdcartafrete: data.Manifest.cdcartafrete,
-          },
-          'Verificando duplicação por chaves únicas (prioridade 2)'
-        );
-        
-        const existingByKeys = await tx.$queryRawUnsafe<Array<{ Id: number; external_id: string | number | null }>>(checkByKeysSql);
-        
-        return existingByKeys;
-      }, {
-        timeout: 5000, // 5 segundos é suficiente para a verificação
-        maxWait: 5000,
-      });
-      
+
+          logger.debug(
+            {
+              nrciot: data.Manifest.nrciot,
+              cdempresa: data.Manifest.cdempresa,
+              cdcartafrete: data.Manifest.cdcartafrete,
+            },
+            'Verificando duplicação por chaves únicas (prioridade 2)',
+          );
+
+          const existingByKeys =
+            await tx.$queryRawUnsafe<Array<{ Id: number; external_id: string | number | null }>>(
+              checkByKeysSql,
+            );
+
+          return existingByKeys;
+        },
+        {
+          timeout: 5000, // 5 segundos é suficiente para a verificação
+          maxWait: 5000,
+        },
+      );
+
       if (checkResult && checkResult.length > 0 && checkResult[0]) {
         const existingId = checkResult[0].Id;
         const existingExternalId = checkResult[0].external_id;
         const requestedExternalId = data.Manifest.id;
-        
+
         // Se o external_id está diferente, é um problema - o registro foi encontrado mas com external_id errado
         // Isso pode acontecer se a stored procedure setou o external_id incorretamente em uma inserção anterior
-        if (requestedExternalId && existingExternalId && String(existingExternalId) !== String(requestedExternalId)) {
+        if (
+          requestedExternalId &&
+          existingExternalId &&
+          String(existingExternalId) !== String(requestedExternalId)
+        ) {
           logger.warn(
             {
               existingId,
@@ -695,10 +1060,10 @@ export async function inserirContasPagarCIOT(
               requestedExternalId,
               nrciot: data.Manifest.nrciot,
             },
-            'ATENÇÃO: Registro encontrado mas external_id está diferente! Será corrigido no UPDATE.'
+            'ATENÇÃO: Registro encontrado mas external_id está diferente! Será corrigido no UPDATE.',
           );
         }
-        
+
         logger.info(
           {
             existingId,
@@ -708,12 +1073,12 @@ export async function inserirContasPagarCIOT(
             cdempresa: data.Manifest.cdempresa,
             cdcartafrete: data.Manifest.cdcartafrete,
           },
-          'Manifesto já existe na tabela destino, realizando UPDATE'
+          'Manifesto já existe na tabela destino, realizando UPDATE',
         );
-        
+
         // Atualizar o manifesto existente (isso vai corrigir o external_id se estiver errado)
         await atualizarManifesto(data.Manifest, existingId);
-        
+
         // Garantir que processed = 0 após UPDATE para que o worker processe novamente
         // O worker processará e mudará para processed = 1
         try {
@@ -722,47 +1087,68 @@ export async function inserirContasPagarCIOT(
             SET processed = 0
             WHERE Id = ${existingId} AND (processed IS NULL OR processed != 0);
           `);
-          logger.debug({ manifestId: existingId }, 'Campo processed = 0 setado após UPDATE (aguardando reprocessamento pelo worker)');
+          logger.debug(
+            { manifestId: existingId },
+            'Campo processed = 0 setado após UPDATE (aguardando reprocessamento pelo worker)',
+          );
         } catch (updateError: any) {
-          logger.warn({ manifestId: existingId, error: updateError.message }, 'Erro ao setar processed = 0 após UPDATE');
+          logger.warn(
+            { manifestId: existingId, error: updateError.message },
+            'Erro ao setar processed = 0 após UPDATE',
+          );
         }
-        
+
         // Atualizar parcelas na tabela intermediária manifest_parcelas (NÃO nas tabelas da Senior)
         // Primeiro, deletar parcelas existentes para reinserir com os novos dados
         try {
           // Deletar parcelas existentes
           const deleteParcelasSql = `DELETE FROM dbo.manifest_parcelas WHERE manifest_id = ${existingId};`;
           await prisma.$executeRawUnsafe(deleteParcelasSql);
-          logger.debug({ manifestId: existingId }, 'Parcelas antigas deletadas da tabela intermediária');
-          
+          logger.debug(
+            { manifestId: existingId },
+            'Parcelas antigas deletadas da tabela intermediária',
+          );
+
           // Deletar faturamento existente
           const deleteFaturamentoSql = `DELETE FROM dbo.manifest_faturamento WHERE manifest_id = ${existingId};`;
           await prisma.$executeRawUnsafe(deleteFaturamentoSql);
-          logger.debug({ manifestId: existingId }, 'Faturamento antigo deletado da tabela intermediária');
-          
+          logger.debug(
+            { manifestId: existingId },
+            'Faturamento antigo deletado da tabela intermediária',
+          );
+
           // Inserir novas parcelas se existirem
           if (data.Manifest.parcelas && data.Manifest.parcelas.length > 0) {
-            logger.info({ manifestId: existingId, parcelasCount: data.Manifest.parcelas.length }, 'Inserindo parcelas atualizadas na tabela intermediária');
+            logger.info(
+              { manifestId: existingId, parcelasCount: data.Manifest.parcelas.length },
+              'Inserindo parcelas atualizadas na tabela intermediária',
+            );
             let validParcelasCount = 0;
             for (let i = 0; i < data.Manifest.parcelas.length; i++) {
               const parcela = data.Manifest.parcelas[i];
               if (!parcela) {
-                logger.warn({ manifestId: existingId, parcelaIndex: i + 1 }, 'Parcela é undefined, pulando');
+                logger.warn(
+                  { manifestId: existingId, parcelaIndex: i + 1 },
+                  'Parcela é undefined, pulando',
+                );
                 continue;
               }
-              
+
               // Validar se a parcela tem idparcela válido antes de tentar inserir
               if (!isValidParcela(parcela)) {
-                logger.warn({
-                  manifestId: existingId,
-                  parcelaIndex: i + 1,
-                  parcelaId: parcela.ID,
-                  idparcela: parcela.idparcela,
-                  dstipo: parcela.dstipo
-                }, 'Parcela com idparcela vazio ou nulo será ignorada - não será inserida');
+                logger.warn(
+                  {
+                    manifestId: existingId,
+                    parcelaIndex: i + 1,
+                    parcelaId: parcela.ID,
+                    idparcela: parcela.idparcela,
+                    dstipo: parcela.dstipo,
+                  },
+                  'Parcela com idparcela vazio ou nulo será ignorada - não será inserida',
+                );
                 continue; // Pular esta parcela e continuar com as próximas
               }
-              
+
               parcela.manifest_id = existingId;
               try {
                 await inserirManifestoParcelas(parcela);
@@ -775,20 +1161,33 @@ export async function inserirContasPagarCIOT(
                     parcelaIndex: i + 1,
                     parcelaId: parcela.ID,
                   },
-                  'Erro ao inserir parcela atualizada na tabela intermediária'
+                  'Erro ao inserir parcela atualizada na tabela intermediária',
                 );
                 // Continuar com as outras parcelas mesmo se esta falhar
               }
             }
-            logger.info({ manifestId: existingId, validParcelasCount, totalParcelas: data.Manifest.parcelas.length }, 'Parcelas atualizadas inseridas na tabela intermediária com sucesso');
+            logger.info(
+              {
+                manifestId: existingId,
+                validParcelasCount,
+                totalParcelas: data.Manifest.parcelas.length,
+              },
+              'Parcelas atualizadas inseridas na tabela intermediária com sucesso',
+            );
           }
-          
+
           // Inserir novo faturamento se existir
           if (data.Manifest.dadosFaturamento) {
-            logger.info({ manifestId: existingId }, 'Inserindo faturamento atualizado na tabela intermediária');
+            logger.info(
+              { manifestId: existingId },
+              'Inserindo faturamento atualizado na tabela intermediária',
+            );
             data.Manifest.dadosFaturamento.manifest_id = existingId;
             await inserirManifestoFaturamento(data.Manifest.dadosFaturamento);
-            logger.info({ manifestId: existingId }, 'Faturamento atualizado inserido na tabela intermediária com sucesso');
+            logger.info(
+              { manifestId: existingId },
+              'Faturamento atualizado inserido na tabela intermediária com sucesso',
+            );
           }
         } catch (updateError: any) {
           logger.error(
@@ -797,16 +1196,16 @@ export async function inserirContasPagarCIOT(
               stack: updateError.stack,
               manifestId: existingId,
             },
-            'Erro ao atualizar parcelas/faturamento na tabela intermediária'
+            'Erro ao atualizar parcelas/faturamento na tabela intermediária',
           );
           // Não lançar erro, pois o manifesto já foi atualizado
         }
-        
+
         logger.info(
           { manifestId: existingId },
-          'Manifesto atualizado. Parcelas e faturamento serão processados pelo worker (processed = 0)'
+          'Manifesto atualizado. Parcelas e faturamento serão processados pelo worker (processed = 0)',
         );
-        
+
         return {
           status: true,
           mensagem: 'Registro atualizado com sucesso!',
@@ -814,38 +1213,40 @@ export async function inserirContasPagarCIOT(
           created: false, // Indica que foi atualizado (não criado)
         };
       }
-      
+
       logger.info(
         {
           nrciot: data.Manifest.nrciot,
           cdempresa: data.Manifest.cdempresa,
           cdcartafrete: data.Manifest.cdcartafrete,
         },
-        'Nenhum registro encontrado, inserindo manifesto (fora da transação)'
+        'Nenhum registro encontrado, inserindo manifesto (fora da transação)',
       );
-      
+
       // Capturar MAX(Id) ANTES de inserir para verificar se foi realmente uma inserção nova
       const maxIdBeforeSql = `
         SELECT ISNULL(MAX(Id), 0) AS MaxId
         FROM dbo.manifests WITH (NOLOCK);
       `;
-      const maxIdBeforeResult = await prisma.$queryRawUnsafe<Array<{ MaxId: number }>>(maxIdBeforeSql);
-      const maxIdBefore = maxIdBeforeResult && maxIdBeforeResult[0] ? maxIdBeforeResult[0].MaxId : 0;
-      
+      const maxIdBeforeResult =
+        await prisma.$queryRawUnsafe<Array<{ MaxId: number }>>(maxIdBeforeSql);
+      const maxIdBefore =
+        maxIdBeforeResult && maxIdBeforeResult[0] ? maxIdBeforeResult[0].MaxId : 0;
+
       logger.debug(
         {
           maxIdBefore,
           nrciot: data.Manifest.nrciot,
         },
-        'MAX(Id) capturado antes de inserir'
+        'MAX(Id) capturado antes de inserir',
       );
-      
+
       // Inserir manifesto e obter ID
       // NOTA: A stored procedure faz commit automático, então o manifesto será inserido imediatamente
       const insertResult = await inserirManifesto(data.Manifest);
       let manifestId = insertResult.id;
       let wasNewInsert = insertResult.wasNewInsert;
-      
+
       // Verificar novamente se o ID retornado é realmente maior que maxIdBefore
       // Isso garante que foi uma inserção nova mesmo em condições de corrida
       if (manifestId > 0 && manifestId <= maxIdBefore) {
@@ -855,7 +1256,7 @@ export async function inserirContasPagarCIOT(
             maxIdBefore,
             nrciot: data.Manifest.nrciot,
           },
-          'ID retornado não é maior que maxIdBefore, pode ser um registro existente. Verificando novamente...'
+          'ID retornado não é maior que maxIdBefore, pode ser um registro existente. Verificando novamente...',
         );
         // Verificar se realmente existe um registro com esse ID e as mesmas chaves
         const verifyIdSql = `
@@ -866,8 +1267,11 @@ export async function inserirContasPagarCIOT(
             AND cdempresa = ${toSqlValue(data.Manifest.cdempresa)}
             AND cdcartafrete = ${toSqlValue(data.Manifest.cdcartafrete)}
         `;
-        const verifyIdResult = await prisma.$queryRawUnsafe<Array<{ Id: number; external_id: string | number | null }>>(verifyIdSql);
-        
+        const verifyIdResult =
+          await prisma.$queryRawUnsafe<Array<{ Id: number; external_id: string | number | null }>>(
+            verifyIdSql,
+          );
+
         if (verifyIdResult && verifyIdResult.length > 0 && verifyIdResult[0]) {
           // O registro existe, mas pode ter sido criado por outra requisição simultânea
           // Verificar se foi criado recentemente comparando com maxIdBefore
@@ -878,13 +1282,13 @@ export async function inserirContasPagarCIOT(
                 maxIdBefore,
                 nrciot: data.Manifest.nrciot,
               },
-              'Registro existe mas ID <= maxIdBefore, considerando como já existente'
+              'Registro existe mas ID <= maxIdBefore, considerando como já existente',
             );
             wasNewInsert = false;
           }
         }
       }
-      
+
       logger.info(
         {
           manifestId,
@@ -892,7 +1296,7 @@ export async function inserirContasPagarCIOT(
           maxIdBefore,
           nrciot: data.Manifest.nrciot,
         },
-        'Manifesto inserido pela stored procedure (commit automático feito)'
+        'Manifesto inserido pela stored procedure (commit automático feito)',
       );
 
       // Verificar novamente após inserção para garantir que não foi duplicado
@@ -919,38 +1323,39 @@ export async function inserirContasPagarCIOT(
           ORDER BY Id ASC;
         `;
       }
-      const verifyAfterInsert = await prisma.$queryRawUnsafe<Array<{ Id: number; external_id: string | number | null }>>(verifyAfterInsertSql);
-      
+      const verifyAfterInsert =
+        await prisma.$queryRawUnsafe<Array<{ Id: number; external_id: string | number | null }>>(
+          verifyAfterInsertSql,
+        );
+
       if (verifyAfterInsert && verifyAfterInsert.length > 0) {
         // Se há mais de um registro, houve duplicação
         if (verifyAfterInsert.length > 1) {
           logger.error(
             {
               insertedId: manifestId,
-              allIds: verifyAfterInsert.map(r => r.Id),
-              allExternalIds: verifyAfterInsert.map(r => r.external_id),
+              allIds: verifyAfterInsert.map((r) => r.Id),
+              allExternalIds: verifyAfterInsert.map((r) => r.external_id),
               requestedExternalId: data.Manifest.id,
               nrciot: data.Manifest.nrciot,
               maxIdBefore,
             },
-            'Duplicação detectada após inserção! Múltiplos registros encontrados com as mesmas chaves'
+            'Duplicação detectada após inserção! Múltiplos registros encontrados com as mesmas chaves',
           );
-          
+
           // Priorizar o registro com external_id correto (se fornecido)
-          let correctRecord = verifyAfterInsert.find(r => 
-            data.Manifest.id && String(r.external_id) === String(data.Manifest.id)
+          let correctRecord = verifyAfterInsert.find(
+            (r) => data.Manifest.id && String(r.external_id) === String(data.Manifest.id),
           );
-          
+
           // Se não encontrou por external_id, usar o mais antigo (menor ID)
           if (!correctRecord) {
             correctRecord = verifyAfterInsert.sort((a, b) => a.Id - b.Id)[0];
           }
-          
+
           const correctId = correctRecord?.Id || manifestId;
-          const duplicateIds = verifyAfterInsert
-            .filter(r => r.Id !== correctId)
-            .map(r => r.Id);
-          
+          const duplicateIds = verifyAfterInsert.filter((r) => r.Id !== correctId).map((r) => r.Id);
+
           // Se o ID inserido não é o correto, deletar o registro duplicado e não inserir parcelas
           if (manifestId !== correctId) {
             logger.warn(
@@ -961,9 +1366,9 @@ export async function inserirContasPagarCIOT(
                 duplicateIds: duplicateIds,
                 maxIdBefore,
               },
-              'Registro inserido é duplicado, será deletado. Mantendo apenas o registro correto.'
+              'Registro inserido é duplicado, será deletado. Mantendo apenas o registro correto.',
             );
-            
+
             // Deletar o registro duplicado que acabamos de inserir
             try {
               const deleteSql = `DELETE FROM dbo.manifests WHERE Id = ${manifestId};`;
@@ -972,10 +1377,10 @@ export async function inserirContasPagarCIOT(
             } catch (deleteError: any) {
               logger.error(
                 { error: deleteError.message, deletedId: manifestId },
-                'Erro ao deletar registro duplicado'
+                'Erro ao deletar registro duplicado',
               );
             }
-            
+
             return {
               status: true,
               mensagem: 'Registro já existe na tabela destino (duplicação detectada e removida)',
@@ -989,9 +1394,9 @@ export async function inserirContasPagarCIOT(
                 duplicateIds: duplicateIds,
                 maxIdBefore,
               },
-              'Múltiplos registros encontrados. Mantendo o correto e deletando duplicados.'
+              'Múltiplos registros encontrados. Mantendo o correto e deletando duplicados.',
             );
-            
+
             // Deletar os registros duplicados (mais recentes)
             for (const dupId of duplicateIds) {
               try {
@@ -1001,7 +1406,7 @@ export async function inserirContasPagarCIOT(
               } catch (deleteError: any) {
                 logger.error(
                   { error: deleteError.message, deletedId: dupId },
-                  'Erro ao deletar registro duplicado'
+                  'Erro ao deletar registro duplicado',
                 );
               }
             }
@@ -1017,7 +1422,7 @@ export async function inserirContasPagarCIOT(
                 nrciot: data.Manifest.nrciot,
                 maxIdBefore,
               },
-              'ID verificado após inserção difere do ID retornado pela stored procedure. Usando ID verificado.'
+              'ID verificado após inserção difere do ID retornado pela stored procedure. Usando ID verificado.',
             );
             manifestId = verifiedId;
             // Se o ID verificado é <= maxIdBefore, pode ser um registro existente
@@ -1028,7 +1433,7 @@ export async function inserirContasPagarCIOT(
                   maxIdBefore,
                   nrciot: data.Manifest.nrciot,
                 },
-                'ID verificado <= maxIdBefore, pode ser um registro existente. Verificando...'
+                'ID verificado <= maxIdBefore, pode ser um registro existente. Verificando...',
               );
               // Verificar se o registro foi criado recentemente (dentro dos últimos segundos)
               // Se não, considerar como já existente
@@ -1039,217 +1444,261 @@ export async function inserirContasPagarCIOT(
       }
 
       logger.info(
-          { manifestId, wasNewInsert, nrciot: data.Manifest.nrciot, hasParcelas: !!data.Manifest.parcelas?.length },
-          'Resultado da inserção do manifesto'
+        {
+          manifestId,
+          wasNewInsert,
+          nrciot: data.Manifest.nrciot,
+          hasParcelas: !!data.Manifest.parcelas?.length,
+        },
+        'Resultado da inserção do manifesto',
+      );
+
+      // Mesmo se o registro já existia, devemos inserir/atualizar parcelas e faturamento
+      // pois podem ter mudado no payload
+      if (!wasNewInsert) {
+        logger.info(
+          { manifestId, nrciot: data.Manifest.nrciot },
+          'Manifesto já existia, mas parcelas e faturamento serão inseridos/atualizados',
         );
+      }
 
-        // Mesmo se o registro já existia, devemos inserir/atualizar parcelas e faturamento
-        // pois podem ter mudado no payload
-        if (!wasNewInsert) {
-          logger.info(
-            { manifestId, nrciot: data.Manifest.nrciot },
-            'Manifesto já existia, mas parcelas e faturamento serão inseridos/atualizados'
-          );
-        }
+      // Rastreamento de tabelas inseridas para o evento
+      const tabelasInseridas: string[] = [];
+      const tabelasFalhadas: Array<{ tabela: string; erro: string }> = [];
 
-        // Rastreamento de tabelas inseridas para o evento
-        const tabelasInseridas: string[] = [];
-        const tabelasFalhadas: Array<{ tabela: string; erro: string }> = [];
-        
-        // Tabela manifests já foi inserida com sucesso
-        tabelasInseridas.push('dbo.manifests');
-        
-        // Inserir parcelas na tabela intermediária manifest_parcelas (NÃO nas tabelas da Senior)
-        // O worker processará essas parcelas nas tabelas da Senior depois
-        // Primeiro, deletar parcelas existentes para evitar duplicação
-        if (data.Manifest.parcelas && data.Manifest.parcelas.length > 0) {
-          logger.info({ manifestId, parcelasCount: data.Manifest.parcelas.length }, 'Inserindo parcelas na tabela intermediária manifest_parcelas');
-          try {
-            // Deletar parcelas existentes primeiro para evitar duplicação
-            const deleteParcelasSql = `DELETE FROM dbo.manifest_parcelas WHERE manifest_id = ${manifestId};`;
-            await prisma.$executeRawUnsafe(deleteParcelasSql);
-            logger.debug({ manifestId }, 'Parcelas antigas deletadas da tabela intermediária');
-            
-            const errors: Array<{ index: number; error: string }> = [];
-            let successCount = 0;
-            
-            for (let i = 0; i < data.Manifest.parcelas.length; i++) {
-              const parcela = data.Manifest.parcelas[i];
-              if (!parcela) {
-                logger.warn({ manifestId, parcelaIndex: i + 1 }, 'Parcela é undefined, pulando');
-                continue;
-              }
-              
-              // Validar se a parcela tem idparcela válido antes de tentar inserir
-              if (!isValidParcela(parcela)) {
-                logger.warn({
+      // Tabela manifests já foi inserida com sucesso
+      tabelasInseridas.push('dbo.manifests');
+
+      // Inserir parcelas na tabela intermediária manifest_parcelas (NÃO nas tabelas da Senior)
+      // O worker processará essas parcelas nas tabelas da Senior depois
+      // Primeiro, deletar parcelas existentes para evitar duplicação
+      if (data.Manifest.parcelas && data.Manifest.parcelas.length > 0) {
+        logger.info(
+          { manifestId, parcelasCount: data.Manifest.parcelas.length },
+          'Inserindo parcelas na tabela intermediária manifest_parcelas',
+        );
+        try {
+          // Deletar parcelas existentes primeiro para evitar duplicação
+          const deleteParcelasSql = `DELETE FROM dbo.manifest_parcelas WHERE manifest_id = ${manifestId};`;
+          await prisma.$executeRawUnsafe(deleteParcelasSql);
+          logger.debug({ manifestId }, 'Parcelas antigas deletadas da tabela intermediária');
+
+          const errors: Array<{ index: number; error: string }> = [];
+          let successCount = 0;
+
+          for (let i = 0; i < data.Manifest.parcelas.length; i++) {
+            const parcela = data.Manifest.parcelas[i];
+            if (!parcela) {
+              logger.warn({ manifestId, parcelaIndex: i + 1 }, 'Parcela é undefined, pulando');
+              continue;
+            }
+
+            // Validar se a parcela tem idparcela válido antes de tentar inserir
+            if (!isValidParcela(parcela)) {
+              logger.warn(
+                {
                   manifestId,
                   parcelaIndex: i + 1,
                   parcelaId: parcela.ID,
                   idparcela: parcela.idparcela,
-                  dstipo: parcela.dstipo
-                }, 'Parcela com idparcela vazio ou nulo será ignorada - não será inserida');
-                continue; // Pular esta parcela e continuar com as próximas
-              }
-              
-              try {
-                parcela.manifest_id = manifestId;
-                
-                logger.debug({ 
-                  manifestId, 
-                  parcelaIndex: i + 1, 
+                  dstipo: parcela.dstipo,
+                },
+                'Parcela com idparcela vazio ou nulo será ignorada - não será inserida',
+              );
+              continue; // Pular esta parcela e continuar com as próximas
+            }
+
+            try {
+              parcela.manifest_id = manifestId;
+
+              logger.debug(
+                {
+                  manifestId,
+                  parcelaIndex: i + 1,
                   totalParcelas: data.Manifest.parcelas.length,
                   parcelaId: parcela.ID,
                   idparcela: parcela.idparcela,
                   dsstatus: parcela.dsstatus,
-                  dstipo: parcela.dstipo
-                }, 'Inserindo parcela na tabela intermediária');
-                
-                await inserirManifestoParcelas(parcela);
-                
-                successCount++;
-                logger.debug({ manifestId, parcelaIndex: i + 1, parcelaId: parcela.ID }, 'Parcela inserida na tabela intermediária com sucesso');
-              } catch (parcelaError: any) {
-                logger.error(
-                  {
-                    error: parcelaError.message,
-                    stack: parcelaError.stack,
-                    manifestId,
-                    parcelaIndex: i + 1,
-                    parcelaId: parcela.ID,
-                  },
-                  `Erro ao inserir parcela ${i + 1} na tabela intermediária - continuando com as outras`
-                );
-                errors.push({ index: i + 1, error: parcelaError.message });
-                // Continuar com a próxima parcela mesmo se esta falhar
-              }
-            }
-            
-            if (errors.length > 0) {
-              logger.warn(
-                {
-                  manifestId,
-                  totalParcelas: data.Manifest.parcelas.length,
-                  successCount,
-                  errorCount: errors.length,
-                  errors,
+                  dstipo: parcela.dstipo,
                 },
-                'Algumas parcelas falharam ao serem inseridas, mas as demais foram processadas'
+                'Inserindo parcela na tabela intermediária',
               );
-            }
-            
-            if (successCount === 0) {
-              tabelasFalhadas.push({ tabela: 'dbo.manifest_parcelas', erro: `Todas as ${data.Manifest.parcelas.length} parcelas falharam ao serem inseridas` });
-              throw new Error(`Todas as ${data.Manifest.parcelas.length} parcelas falharam ao serem inseridas`);
-            }
-            
-            // Registrar sucesso/parcial da tabela de parcelas
-            if (errors.length > 0) {
-              tabelasFalhadas.push({ 
-                tabela: 'dbo.manifest_parcelas', 
-                erro: `${errors.length} de ${data.Manifest.parcelas.length} parcelas falharam` 
-              });
-            } else {
-              tabelasInseridas.push('dbo.manifest_parcelas');
-            }
-            
-            logger.info({ manifestId, successCount, totalParcelas: data.Manifest.parcelas.length }, 'Parcelas inseridas na tabela intermediária');
-          } catch (parcelaError: any) {
-            logger.error(
-              {
-                error: parcelaError.message,
-                stack: parcelaError.stack,
-                manifestId,
-                parcelasCount: data.Manifest.parcelas.length,
-              },
-              'Erro crítico ao inserir parcelas na tabela intermediária'
-            );
-            // Lançar erro apenas se foi um erro crítico (não de parcela individual)
-            const nrciot = data?.Manifest?.nrciot || 'N/A';
-            throw new Error(`Falha crítica ao inserir parcelas do CIOT ${nrciot}: ${parcelaError.message}. O manifesto pode ter sido salvo, mas as parcelas não foram registradas.`);
-          }
-        } else {
-          logger.warn({ manifestId }, 'Nenhuma parcela encontrada no payload para inserir na tabela intermediária');
-        }
 
-        // Inserir faturamento na tabela intermediária manifest_faturamento (NÃO nas tabelas da Senior)
-        logger.debug({ 
-          manifestId, 
-          hasDadosFaturamento: !!data.Manifest.dadosFaturamento,
-          dadosFaturamento: data.Manifest.dadosFaturamento 
-        }, 'Verificando dadosFaturamento antes de inserir');
-        
-        if (data.Manifest.dadosFaturamento) {
-          logger.info({ manifestId, dadosFaturamento: data.Manifest.dadosFaturamento }, 'Inserindo faturamento na tabela intermediária manifest_faturamento');
-          try {
-            data.Manifest.dadosFaturamento.manifest_id = manifestId;
-            await inserirManifestoFaturamento(data.Manifest.dadosFaturamento);
-            tabelasInseridas.push('dbo.manifest_faturamento');
-            logger.info({ manifestId }, 'Faturamento inserido na tabela intermediária com sucesso');
-          } catch (faturamentoError: any) {
-            tabelasFalhadas.push({ 
-              tabela: 'dbo.manifest_faturamento', 
-              erro: faturamentoError.message 
+              await inserirManifestoParcelas(parcela);
+
+              successCount++;
+              logger.debug(
+                { manifestId, parcelaIndex: i + 1, parcelaId: parcela.ID },
+                'Parcela inserida na tabela intermediária com sucesso',
+              );
+            } catch (parcelaError: any) {
+              logger.error(
+                {
+                  error: parcelaError.message,
+                  stack: parcelaError.stack,
+                  manifestId,
+                  parcelaIndex: i + 1,
+                  parcelaId: parcela.ID,
+                },
+                `Erro ao inserir parcela ${i + 1} na tabela intermediária - continuando com as outras`,
+              );
+              errors.push({ index: i + 1, error: parcelaError.message });
+              // Continuar com a próxima parcela mesmo se esta falhar
+            }
+          }
+
+          if (errors.length > 0) {
+            logger.warn(
+              {
+                manifestId,
+                totalParcelas: data.Manifest.parcelas.length,
+                successCount,
+                errorCount: errors.length,
+                errors,
+              },
+              'Algumas parcelas falharam ao serem inseridas, mas as demais foram processadas',
+            );
+          }
+
+          if (successCount === 0) {
+            tabelasFalhadas.push({
+              tabela: 'dbo.manifest_parcelas',
+              erro: `Todas as ${data.Manifest.parcelas.length} parcelas falharam ao serem inseridas`,
             });
-            logger.error(
-              {
-                error: faturamentoError.message,
-                stack: faturamentoError.stack,
-                manifestId,
-                dadosFaturamento: data.Manifest.dadosFaturamento,
-              },
-              'Erro ao inserir faturamento na tabela intermediária'
+            throw new Error(
+              `Todas as ${data.Manifest.parcelas.length} parcelas falharam ao serem inseridas`,
             );
-            // Não falhar completamente, apenas logar o erro
           }
-        } else {
-          logger.warn({ manifestId, nrciot: data.Manifest.nrciot }, 'dadosFaturamento não está presente no payload - não será inserido na tabela manifest_faturamento');
-        }
 
-        logger.info(
-          { manifestId, parcelasCount: data.Manifest.parcelas?.length || 0, hasFaturamento: !!data.Manifest.dadosFaturamento },
-          'Manifesto e dados relacionados inseridos. Worker processará nas tabelas da Senior (processed = 0)'
-        );
+          // Registrar sucesso/parcial da tabela de parcelas
+          if (errors.length > 0) {
+            tabelasFalhadas.push({
+              tabela: 'dbo.manifest_parcelas',
+              erro: `${errors.length} de ${data.Manifest.parcelas.length} parcelas falharam`,
+            });
+          } else {
+            tabelasInseridas.push('dbo.manifest_parcelas');
+          }
 
-        // Atualizar evento WebhookEvent com manifestId correto e informações detalhadas das tabelas
-        if (eventId) {
-          const finalEventId = generateCiotEventId(manifestId, data.Manifest.nrciot);
-          const temFalhas = tabelasFalhadas.length > 0;
-          
-          let mensagemErro: string | null = null;
-          if (temFalhas) {
-            const tabelasOk = tabelasInseridas.length > 0 
-              ? `Tabelas inseridas com sucesso: ${tabelasInseridas.join(', ')}. `
-              : '';
-            const tabelasErro = `Tabelas com erro: ${tabelasFalhadas.map(t => `${t.tabela} (${t.erro})`).join(', ')}.`;
-            mensagemErro = tabelasOk + tabelasErro;
-          }
-          
-          const metadata: any = {
-            manifestId: manifestId,
-            nrciot: data.Manifest.nrciot,
-            parcelasCount: data.Manifest.parcelas?.length || 0,
-            etapa: 'backend_inserido',
-            tabelasInseridas: tabelasInseridas,
-            resumo: {
-              totalTabelas: tabelasInseridas.length + tabelasFalhadas.length,
-              sucesso: tabelasInseridas.length,
-              falhas: tabelasFalhadas.length,
-            }
-          };
-          
-          if (temFalhas) {
-            metadata.tabelasFalhadas = tabelasFalhadas;
-          }
-          
-          await createOrUpdateWebhookEvent(
-            finalEventId,
-            '/api/CIOT/InserirContasPagarCIOT',
-            'processed',
-            mensagemErro,
-            metadata
+          logger.info(
+            { manifestId, successCount, totalParcelas: data.Manifest.parcelas.length },
+            'Parcelas inseridas na tabela intermediária',
+          );
+        } catch (parcelaError: any) {
+          logger.error(
+            {
+              error: parcelaError.message,
+              stack: parcelaError.stack,
+              manifestId,
+              parcelasCount: data.Manifest.parcelas.length,
+            },
+            'Erro crítico ao inserir parcelas na tabela intermediária',
+          );
+          // Lançar erro apenas se foi um erro crítico (não de parcela individual)
+          const nrciot = data?.Manifest?.nrciot || 'N/A';
+          throw new Error(
+            `Falha crítica ao inserir parcelas do CIOT ${nrciot}: ${parcelaError.message}. O manifesto pode ter sido salvo, mas as parcelas não foram registradas.`,
           );
         }
+      } else {
+        logger.warn(
+          { manifestId },
+          'Nenhuma parcela encontrada no payload para inserir na tabela intermediária',
+        );
+      }
+
+      // Inserir faturamento na tabela intermediária manifest_faturamento (NÃO nas tabelas da Senior)
+      logger.debug(
+        {
+          manifestId,
+          hasDadosFaturamento: !!data.Manifest.dadosFaturamento,
+          dadosFaturamento: data.Manifest.dadosFaturamento,
+        },
+        'Verificando dadosFaturamento antes de inserir',
+      );
+
+      if (data.Manifest.dadosFaturamento) {
+        logger.info(
+          { manifestId, dadosFaturamento: data.Manifest.dadosFaturamento },
+          'Inserindo faturamento na tabela intermediária manifest_faturamento',
+        );
+        try {
+          data.Manifest.dadosFaturamento.manifest_id = manifestId;
+          await inserirManifestoFaturamento(data.Manifest.dadosFaturamento);
+          tabelasInseridas.push('dbo.manifest_faturamento');
+          logger.info({ manifestId }, 'Faturamento inserido na tabela intermediária com sucesso');
+        } catch (faturamentoError: any) {
+          tabelasFalhadas.push({
+            tabela: 'dbo.manifest_faturamento',
+            erro: faturamentoError.message,
+          });
+          logger.error(
+            {
+              error: faturamentoError.message,
+              stack: faturamentoError.stack,
+              manifestId,
+              dadosFaturamento: data.Manifest.dadosFaturamento,
+            },
+            'Erro ao inserir faturamento na tabela intermediária',
+          );
+          // Não falhar completamente, apenas logar o erro
+        }
+      } else {
+        logger.warn(
+          { manifestId, nrciot: data.Manifest.nrciot },
+          'dadosFaturamento não está presente no payload - não será inserido na tabela manifest_faturamento',
+        );
+      }
+
+      logger.info(
+        {
+          manifestId,
+          parcelasCount: data.Manifest.parcelas?.length || 0,
+          hasFaturamento: !!data.Manifest.dadosFaturamento,
+        },
+        'Manifesto e dados relacionados inseridos. Worker processará nas tabelas da Senior (processed = 0)',
+      );
+
+      // Atualizar evento WebhookEvent com manifestId correto e informações detalhadas das tabelas
+      if (eventId) {
+        const finalEventId = generateCiotEventId(manifestId, data.Manifest.nrciot);
+        const temFalhas = tabelasFalhadas.length > 0;
+
+        let mensagemErro: string | null = null;
+        if (temFalhas) {
+          const tabelasOk =
+            tabelasInseridas.length > 0
+              ? `Tabelas inseridas com sucesso: ${tabelasInseridas.join(', ')}. `
+              : '';
+          const tabelasErro = `Tabelas com erro: ${tabelasFalhadas.map((t) => `${t.tabela} (${t.erro})`).join(', ')}.`;
+          mensagemErro = tabelasOk + tabelasErro;
+        }
+
+        const metadata: any = {
+          manifestId: manifestId,
+          nrciot: data.Manifest.nrciot,
+          parcelasCount: data.Manifest.parcelas?.length || 0,
+          etapa: 'backend_inserido',
+          tabelasInseridas: tabelasInseridas,
+          resumo: {
+            totalTabelas: tabelasInseridas.length + tabelasFalhadas.length,
+            sucesso: tabelasInseridas.length,
+            falhas: tabelasFalhadas.length,
+          },
+        };
+
+        if (temFalhas) {
+          metadata.tabelasFalhadas = tabelasFalhadas;
+        }
+
+        await createOrUpdateWebhookEvent(
+          finalEventId,
+          '/api/CIOT/InserirContasPagarCIOT',
+          'processed',
+          mensagemErro,
+          metadata,
+        );
+      }
 
       return {
         status: true,
@@ -1268,7 +1717,7 @@ export async function inserirContasPagarCIOT(
     const errorMessage = error?.message || '';
     const errorCode = error?.code || error?.meta?.code || null;
     const errorName = error?.name || 'UnknownError';
-    
+
     // Log detalhado do erro
     logger.error(
       {
@@ -1285,33 +1734,33 @@ export async function inserirContasPagarCIOT(
         hasFaturamento: !!data?.Manifest?.dadosFaturamento,
         meta: error?.meta,
       },
-      'Erro ao inserir ContasPagarCIOT'
+      'Erro ao inserir ContasPagarCIOT',
     );
-    
+
     // Se o erro é relacionado a parcelas ou faturamento, o manifesto pode já ter sido inserido
     // pela stored procedure (que faz commit automático)
-    
+
     // Tentar identificar quais tabelas foram inseridas antes do erro
     const tabelasInseridas: string[] = [];
     const tabelasFalhadas: Array<{ tabela: string; erro: string }> = [];
-    
+
     // Verificar se o manifesto foi inserido (pode ter sido inserido pela stored procedure antes do erro)
     if (errorMessage.includes('parcelas') || errorMessage.includes('faturamento')) {
       tabelasInseridas.push('dbo.manifests'); // Provavelmente foi inserido
     } else {
-      tabelasFalhadas.push({ 
-        tabela: 'dbo.manifests', 
-        erro: errorMessage || 'Erro desconhecido durante inserção do manifesto' 
+      tabelasFalhadas.push({
+        tabela: 'dbo.manifests',
+        erro: errorMessage || 'Erro desconhecido durante inserção do manifesto',
       });
     }
-    
+
     // Construir mensagem de erro mais detalhada
     let mensagemErroDetalhada = errorMessage || 'Erro desconhecido ao inserir ContasPagarCIOT';
-    
+
     if (errorCode) {
       mensagemErroDetalhada += ` (Código: ${errorCode})`;
     }
-    
+
     // Atualizar evento WebhookEvent com erro detalhado
     if (eventId) {
       const metadata: any = {
@@ -1321,21 +1770,21 @@ export async function inserirContasPagarCIOT(
         errorCode,
         errorName,
       };
-      
+
       if (tabelasInseridas.length > 0) {
         metadata.tabelasInseridas = tabelasInseridas;
       }
-      
+
       if (tabelasFalhadas.length > 0) {
         metadata.tabelasFalhadas = tabelasFalhadas;
-        const tabelasOk = tabelasInseridas.length > 0 
-          ? `Tabelas inseridas: ${tabelasInseridas.join(', ')}. `
-          : '';
-        const tabelasErro = `Tabelas com erro: ${tabelasFalhadas.map(t => `${t.tabela} (${t.erro})`).join(', ')}.`;
-        mensagemErroDetalhada = mensagemErroDetalhada + (tabelasOk || tabelasErro ? `. ${tabelasOk}${tabelasErro}` : '');
+        const tabelasOk =
+          tabelasInseridas.length > 0 ? `Tabelas inseridas: ${tabelasInseridas.join(', ')}. ` : '';
+        const tabelasErro = `Tabelas com erro: ${tabelasFalhadas.map((t) => `${t.tabela} (${t.erro})`).join(', ')}.`;
+        mensagemErroDetalhada =
+          mensagemErroDetalhada + (tabelasOk || tabelasErro ? `. ${tabelasOk}${tabelasErro}` : '');
         metadata.erro = mensagemErroDetalhada;
       }
-      
+
       if (tabelasInseridas.length > 0 || tabelasFalhadas.length > 0) {
         metadata.resumo = {
           totalTabelas: tabelasInseridas.length + tabelasFalhadas.length,
@@ -1343,16 +1792,16 @@ export async function inserirContasPagarCIOT(
           falhas: tabelasFalhadas.length,
         };
       }
-      
+
       await createOrUpdateWebhookEvent(
         eventId,
         '/api/CIOT/InserirContasPagarCIOT',
         'failed',
         mensagemErroDetalhada,
-        metadata
+        metadata,
       );
     }
-    
+
     if (errorMessage.includes('parcelas') || errorMessage.includes('faturamento')) {
       const nrciot = data?.Manifest?.nrciot || 'desconhecido';
       const tipo = errorMessage.includes('parcelas') ? 'parcelas' : 'dados de faturamento';
@@ -1362,16 +1811,16 @@ export async function inserirContasPagarCIOT(
         manifestId: null,
       };
     }
-    
+
     // Construir mensagem mais detalhada e amigável
     let mensagemRetorno = 'Erro ao processar CIOT';
-    
+
     // Adicionar informações sobre o CIOT e manifestor
     const nrciot = data?.Manifest?.nrciot;
     if (nrciot) {
       mensagemRetorno += ` (CIOT ${nrciot})`;
     }
-    
+
     // Identificar tipo de erro e fornecer mensagem específica
     if (errorMessage) {
       // Erro de truncamento (campo muito grande)
@@ -1387,7 +1836,11 @@ export async function inserirContasPagarCIOT(
         mensagemRetorno += ' Verifique os dados enviados e ajuste os valores.';
       }
       // Erro de chave duplicada
-      else if (errorCode === '2627' || errorMessage.includes('duplicate key') || errorMessage.includes('UNIQUE KEY constraint')) {
+      else if (
+        errorCode === '2627' ||
+        errorMessage.includes('duplicate key') ||
+        errorMessage.includes('UNIQUE KEY constraint')
+      ) {
         const tableMatch = errorMessage.match(/in object '([^']+)'/i);
         const keyMatch = errorMessage.match(/key value is \(([^)]+)\)/i);
         if (tableMatch && keyMatch) {
@@ -1403,9 +1856,14 @@ export async function inserirContasPagarCIOT(
         mensagemRetorno += ' Aguarde alguns segundos e tente novamente.';
       }
       // Erro de timeout de transação
-      else if (errorCode === 'P2028' || errorMessage.includes('Transaction already closed') || errorMessage.includes('timeout')) {
+      else if (
+        errorCode === 'P2028' ||
+        errorMessage.includes('Transaction already closed') ||
+        errorMessage.includes('timeout')
+      ) {
         mensagemRetorno += ': Tempo limite de processamento excedido.';
-        mensagemRetorno += ' Isso pode ocorrer com muitas parcelas ou dados volumosos. Tente novamente.';
+        mensagemRetorno +=
+          ' Isso pode ocorrer com muitas parcelas ou dados volumosos. Tente novamente.';
       }
       // Erro genérico com código
       else {
@@ -1417,12 +1875,12 @@ export async function inserirContasPagarCIOT(
     } else {
       mensagemRetorno += ': Erro desconhecido durante processamento.';
     }
-    
+
     // Adicionar dica sobre logs apenas se não for erro conhecido
     if (!errorCode || !['2628', '2627', '1205', 'P2028'].includes(errorCode)) {
       mensagemRetorno += ' Consulte os logs do sistema para mais detalhes técnicos.';
     }
-    
+
     return {
       status: false,
       mensagem: mensagemRetorno,
@@ -1430,4 +1888,3 @@ export async function inserirContasPagarCIOT(
     };
   }
 }
-

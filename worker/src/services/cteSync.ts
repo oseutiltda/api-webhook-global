@@ -1,5 +1,4 @@
 import type { PrismaClient } from '@prisma/client';
-import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import {
   inserirContasReceberCTe,
@@ -9,16 +8,13 @@ import {
   buildCdEmpresaFromCnpj,
   verificarCteExistente,
 } from './cteIntegration';
+import { buildWorkerBypassMetadata, isPostgresSafeMode } from '../utils/integrationMode';
 import type { CteData } from '../types/cte';
 
 const CTE_BATCH_SIZE = Number(process.env.CTE_WORKER_BATCH_SIZE ?? '5');
 const CTE_SOURCE_DATABASE = process.env.CTE_SOURCE_DATABASE || 'AFS_INTEGRADOR';
 const CTE_TABLE = `[${CTE_SOURCE_DATABASE}].[dbo].[ctes]`;
-const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
-
-const shouldBypassCteLegacyFlow = (): boolean => {
-  return IS_POSTGRES && !env.ENABLE_SQLSERVER_LEGACY;
-};
+const IS_POSTGRES = process.env.DATABASE_URL?.startsWith('postgresql://') ?? false;
 
 const marcarCteProcessadoPorId = async (prisma: PrismaClient, cteId: number): Promise<void> => {
   if (IS_POSTGRES) {
@@ -437,7 +433,7 @@ const processarCteComDados = async (prisma: PrismaClient, payload: CteData) => {
     const processingTimeMs = Date.now() - processingStartTime;
 
     if (resultado.success) {
-      if (shouldBypassCteLegacyFlow()) {
+      if (isPostgresSafeMode()) {
         await prisma.webhookEvent.update({
           where: { id: eventId },
           data: {
@@ -454,7 +450,7 @@ const processarCteComDados = async (prisma: PrismaClient, payload: CteData) => {
               authorization_number: payload.authorization_number,
               status: payload.status,
               etapa: 'concluido_postgres_local',
-              modo: 'postgres_local_sem_legacy',
+              ...buildWorkerBypassMetadata('cteSync'),
               tabelasInseridas: resultado.tabelasInseridas || ['LOCAL_POSTGRES'],
             }),
           },
@@ -465,7 +461,7 @@ const processarCteComDados = async (prisma: PrismaClient, payload: CteData) => {
             cteId,
             external_id: payload.external_id,
             processingTimeMs,
-            mode: 'postgres_local_sem_legacy',
+            ...buildWorkerBypassMetadata('cteSync'),
           },
           'CT-e processado em modo PostgreSQL local (sem validação de tabelas Senior)',
         );

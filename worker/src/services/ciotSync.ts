@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
-import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import { inserirContasPagarCIOT } from './ciotIntegration';
+import { buildWorkerBypassMetadata, isPostgresSafeMode } from '../utils/integrationMode';
 import type {
   Manifest,
   ManifestParcelas,
@@ -12,11 +12,6 @@ import type {
 const CIOT_BATCH_SIZE = Number(process.env.CIOT_WORKER_BATCH_SIZE ?? '3');
 const CIOT_SOURCE_DATABASE = process.env.CIOT_SOURCE_DATABASE || 'AFS_INTEGRADOR';
 const CIOT_TABLE = `[${CIOT_SOURCE_DATABASE}].[dbo].[manifests]`;
-const IS_POSTGRES = env.DATABASE_URL.startsWith('postgresql://');
-
-const shouldBypassCiotLegacyFlow = (): boolean => {
-  return IS_POSTGRES && !env.ENABLE_SQLSERVER_LEGACY;
-};
 
 type RawRow = Record<string, any>;
 
@@ -918,12 +913,9 @@ const processManifest = async (prisma: PrismaClient, manifestId: number) => {
 };
 
 export async function processPendingCiot(prisma: PrismaClient) {
-  if (shouldBypassCiotLegacyFlow()) {
+  if (isPostgresSafeMode()) {
     logger.info(
-      {
-        isPostgres: IS_POSTGRES,
-        enableSqlServerLegacy: env.ENABLE_SQLSERVER_LEGACY,
-      },
+      buildWorkerBypassMetadata('ciotSync', { reason: 'legacy_flow_disabled' }),
       'Processamento CIOT legado desativado em modo PostgreSQL',
     );
     return;

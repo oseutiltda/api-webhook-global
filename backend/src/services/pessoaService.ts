@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
+import { buildBypassMetadata, isPostgresSafeMode } from '../utils/integrationMode';
 import type { Pessoa } from '../schemas/pessoa';
 
 const prisma = new PrismaClient();
@@ -131,7 +132,7 @@ const parseDateNascimento = (dateInput: string | Date | null | undefined): strin
 };
 
 const shouldBypassPessoaLegacyFlow = (): boolean => {
-  return IS_POSTGRES && !env.ENABLE_SENIOR_INTEGRATION;
+  return isPostgresSafeMode();
 };
 
 const extractCodPessoaFromPayload = (payload: string | null): number | undefined => {
@@ -3380,9 +3381,8 @@ export async function inserirPessoa(pessoa: Pessoa): Promise<{
         logger.warn(
           {
             codPessoaEsl: pessoa.CodPessoaEsl,
-            isPostgres: IS_POSTGRES,
-            enableSeniorIntegration: env.ENABLE_SENIOR_INTEGRATION,
             persistidoLocal: true,
+            ...buildBypassMetadata('pessoaService'),
           },
           'Fluxo legado de Pessoa (SQL Server/Senior) desativado em modo migracao',
         );
