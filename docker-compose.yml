@@ -58,7 +58,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://globalcargo.afsgroup.com.br/api}
         NEXT_PUBLIC_ADMIN1_USER: ${NEXT_PUBLIC_ADMIN1_USER:-afs@afs}
         NEXT_PUBLIC_ADMIN1_PASSWORD: ${NEXT_PUBLIC_ADMIN1_PASSWORD:-afs123}
         NEXT_PUBLIC_ADMIN2_USER: ${NEXT_PUBLIC_ADMIN2_USER:-admin2@admin}

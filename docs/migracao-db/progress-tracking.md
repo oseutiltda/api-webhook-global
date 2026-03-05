@@ -8,14 +8,23 @@
 
 ## Estado atual
 
-- Data da ultima atualizacao: 2026-03-03
+- Data da ultima atualizacao: 2026-03-05
 - Fase atual: Fase 5 (migracao por dominio) - etapa 5.3/5.4 em andamento
 - Status geral: em andamento
 
 ## Ultimo checkpoint concluido
 
-- Checkpoint: `F5.3.3-ciot-worker-local-sync-safe-mode`
+- Checkpoint: `F6.3-api-base-url-globalcargo`
 - Resultado:
+  - `F6.3-api-base-url-globalcargo` concluido:
+    - `NEXT_PUBLIC_API_BASE_URL` padronizada para `https://globalcargo.afsgroup.com.br/api` em:
+      - `.env.example`
+      - `docker-compose.yml` (default de build args do frontend)
+    - frontend ajustado para aceitar base com sufixo `/api` sem duplicar caminho (`/api/api/...`):
+      - `frontend/src/app/page.tsx`
+      - `frontend/src/app/worker/page.tsx`
+      - `frontend/src/app/worker1/page.tsx`
+      - normalizacao aplicada no helper `getApiBase` (`trim` de `/` final e de `/api` final)
   - `F5.3.3-ciot-worker-local-sync-safe-mode` concluido:
     - `worker/src/services/ciotSync.ts` deixou de apenas retornar no modo seguro e passou a sincronizar eventos CIOT locais (`/api/CIOT/InserirContasPagarCIOT`) para pipeline interno do worker
     - para eventos de insercao/atualizacao:

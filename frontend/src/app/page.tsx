@@ -73,6 +73,8 @@ import {
 // Função helper para obter a URL base da API.
 // Em produção, evita `localhost` no browser do cliente e usa o mesmo host na porta 3000.
 const getApiBase = (): string => {
+  const normalizeBase = (base: string): string => base.replace(/\/$/, '').replace(/\/api$/i, '');
+
   const resolveClientApiBase = (): string => {
     if (typeof window === 'undefined') return 'http://localhost:3000';
     return `${window.location.protocol}//${window.location.hostname}:3000`;
@@ -80,31 +82,31 @@ const getApiBase = (): string => {
 
   const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   if (!configured) {
-    return resolveClientApiBase();
+    return normalizeBase(resolveClientApiBase());
   }
 
   if (!configured.startsWith('http://') && !configured.startsWith('https://')) {
-    return configured;
+    return normalizeBase(configured);
   }
 
   if (typeof window === 'undefined') {
-    return configured;
+    return normalizeBase(configured);
   }
 
   try {
     const parsed = new URL(configured);
     if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
-      return resolveClientApiBase();
+      return normalizeBase(resolveClientApiBase());
     }
 
     if (window.location.protocol === 'https:' && parsed.protocol === 'http:') {
       parsed.protocol = 'https:';
-      return parsed.toString().replace(/\/$/, '');
+      return normalizeBase(parsed.toString());
     }
 
-    return configured;
+    return normalizeBase(configured);
   } catch {
-    return resolveClientApiBase();
+    return normalizeBase(resolveClientApiBase());
   }
 };
 
