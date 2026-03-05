@@ -14,8 +14,22 @@
 
 ## Ultimo checkpoint concluido
 
-- Checkpoint: `F6.3-api-base-url-globalcargo`
+- Checkpoint: `F6.4-scripts-deploy-operacional`
 - Resultado:
+  - `F6.4-scripts-deploy-operacional` concluido:
+    - scripts de deploy adicionados na raiz:
+      - `deploy.sh` (stack completa)
+      - `deploy-front.sh` (somente frontend)
+      - `deploy-back.sh` (somente backend)
+    - fluxo aplicado nos scripts:
+      - `docker compose down`
+      - `git pull --ff-only`
+      - `docker compose build`
+      - `docker compose up -d`
+      - `docker compose logs --tail 100 -f`
+    - validacao local:
+      - `chmod +x deploy.sh deploy-front.sh deploy-back.sh`
+      - `bash -n deploy.sh deploy-front.sh deploy-back.sh` OK
   - `F6.3-api-base-url-globalcargo` concluido:
     - `NEXT_PUBLIC_API_BASE_URL` padronizada para `https://globalcargo.afsgroup.com.br/api` em:
       - `.env.example`
