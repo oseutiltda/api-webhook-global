@@ -518,7 +518,7 @@
   - `backend`: `docker compose build backend` OK
   - `worker`: `docker compose build worker` OK
   - `docker-compose.yml`: backend/worker deixaram de sobrescrever `DATABASE_URL` para `postgres:5432`; agora respeitam o valor vindo do `.env`
-  - `docker-compose.yml`: `postgres` movido para profile `local-db` e `loki/promtail/grafana` movidos para profile `observability`, saindo do caminho padrao de producao
+  - `docker-compose.yml`: `postgres` restaurado no fluxo padrao do `docker compose up -d`; apenas `loki/promtail/grafana` permanecem no profile `observability`
   - `docker-compose.yml`: `backend` e `worker` receberam `host.docker.internal:host-gateway` para acesso ao banco da VPS quando necessario
 
 ## Proximo checkpoint

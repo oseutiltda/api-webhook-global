@@ -1,6 +1,5 @@
 services:
   postgres:
-    profiles: ["local-db"]
     image: postgres:16-alpine
     container_name: global-postgres
     restart: unless-stopped
@@ -41,6 +40,9 @@ services:
       SENIOR_DATABASE: ${SENIOR_DATABASE:-SOFTRAN_BRASILMAXI}
     ports:
       - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     security_opt:
@@ -101,6 +103,8 @@ services:
     depends_on:
       backend:
         condition: service_started
+      postgres:
+        condition: service_healthy
     env_file:
       - .env
     environment:
