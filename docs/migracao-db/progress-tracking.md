@@ -14,6 +14,23 @@
 
 ## Ultimo checkpoint concluido
 
+- Checkpoint: `F6.13-status-online-offline-mais-vivos`
+- Resultado:
+  - indicadores visuais de `online`/`offline` refinados para leitura mais imediata nos paineis de saude:
+    - `frontend/src/app/globals.css`
+    - `frontend/src/app/page.tsx`
+  - ajustes aplicados:
+    - verde de sucesso intensificado para um tom mais vivo, preservando sobriedade da paleta Global
+    - vermelho de erro intensificado para dar contraste melhor ao estado offline
+    - `surface-success` e `surface-danger` receberam profundidade sutil com brilho interno e sombra leve
+    - `status-success` e `status-danger` passaram a usar preenchimento mais rico, borda mais definida e peso tipografico maior
+    - badges de saude do dashboard principal ganharam ponto de status pulsante para reforcar leitura de ambiente ativo/inativo
+  - validacao obrigatoria executada no frontend:
+    - `npm run lint` OK sem erros; warnings preexistentes permaneceram em hooks/unused vars fora do escopo visual
+    - `npm run typecheck` OK
+    - `npm run format:check` OK
+  - proximo passo natural:
+    - aplicar o mesmo tratamento visual reforcado aos outros estados operacionais onde houver leitura binaria critica de status
 - Checkpoint: `F6.9.1-execucao-branding-global-sutil`
 - Resultado:
   - branding visual Global aplicado de ponta a ponta no frontend com criterio sobrio:
@@ -494,6 +511,15 @@
   - `frontend`: badges de status e status de integracao suavizados com fundo leve e borda sutil em `status-info/success/warning/danger/neutral`
   - `frontend`: ajuste fino adicional nos badges de tabela para reduzir peso visual de `warning/danger` e uniformizar `font-weight` em estados operacionais
   - `frontend`: `npx prettier --check frontend/src/app/globals.css` OK
+  - `frontend`: `npm run build` OK
+  - `backend`: `npm run build` OK
+  - `worker`: `npm run build` OK
+  - `frontend`: `docker compose build frontend` OK
+  - `backend`: `docker compose build backend` OK
+  - `worker`: `docker compose build worker` OK
+  - `docker-compose.yml`: backend/worker deixaram de sobrescrever `DATABASE_URL` para `postgres:5432`; agora respeitam o valor vindo do `.env`
+  - `docker-compose.yml`: `postgres` movido para profile `local-db` e `loki/promtail/grafana` movidos para profile `observability`, saindo do caminho padrao de producao
+  - `docker-compose.yml`: `backend` e `worker` receberam `host.docker.internal:host-gateway` para acesso ao banco da VPS quando necessario
 
 ## Proximo checkpoint
 
