@@ -14,7 +14,7 @@ const prisma = new PrismaClient();
 export async function inserirContasPagarCIOTController(req: Request, res: Response) {
   let eventId: string | null = null;
   const source = '/api/CIOT/InserirContasPagarCIOT';
-  
+
   try {
     // Aceitar payloads com raiz "manifest" (minúscula) e normalizar para "Manifest"
     if (req.body.manifest && !req.body.Manifest) {
@@ -39,30 +39,47 @@ export async function inserirContasPagarCIOTController(req: Request, res: Respon
     createOrUpdateWebhookEvent(eventId, source, 'pending', null, {
       nrciot: nrciot || null,
       etapa: 'validacao',
-    }).catch((err: any) => logger.warn({ error: err?.message }, 'Erro ao criar evento pending (não crítico)'));
+    }).catch((err: any) =>
+      logger.warn({ error: err?.message }, 'Erro ao criar evento pending (não crítico)'),
+    );
 
     // Debug: verificar se dadosFaturamento está presente antes da validação
-    logger.debug({ 
-      hasDadosFaturamento: !!req.body.Manifest?.dadosFaturamento,
-      dadosFaturamento: req.body.Manifest?.dadosFaturamento 
-    }, 'DadosFaturamento antes da validação do schema');
+    logger.debug(
+      {
+        hasDadosFaturamento: !!req.body.Manifest?.dadosFaturamento,
+        dadosFaturamento: req.body.Manifest?.dadosFaturamento,
+      },
+      'DadosFaturamento antes da validação do schema',
+    );
 
     // Validar schema
     const data = contasPagarCIOTSchema.parse(req.body);
 
     // Debug: verificar se dadosFaturamento está presente após a validação
-    logger.debug({ 
-      hasDadosFaturamento: !!data.Manifest?.dadosFaturamento,
-      dadosFaturamento: data.Manifest?.dadosFaturamento 
-    }, 'DadosFaturamento após validação do schema');
+    logger.debug(
+      {
+        hasDadosFaturamento: !!data.Manifest?.dadosFaturamento,
+        dadosFaturamento: data.Manifest?.dadosFaturamento,
+      },
+      'DadosFaturamento após validação do schema',
+    );
 
-    logger.info({ cancelado: data.cancelado, nrciot: data.Manifest?.nrciot, hasDadosFaturamento: !!data.Manifest?.dadosFaturamento }, 'Recebida requisição para inserir ContasPagarCIOT');
+    logger.info(
+      {
+        cancelado: data.cancelado,
+        nrciot: data.Manifest?.nrciot,
+        hasDadosFaturamento: !!data.Manifest?.dadosFaturamento,
+      },
+      'Recebida requisição para inserir ContasPagarCIOT',
+    );
 
     // Atualizar evento para processing em background (não bloqueia)
     createOrUpdateWebhookEvent(eventId, source, 'processing', null, {
       nrciot: data.Manifest?.nrciot || null,
       etapa: 'processamento',
-    }).catch((err: any) => logger.warn({ error: err?.message }, 'Erro ao criar evento processing (não crítico)'));
+    }).catch((err: any) =>
+      logger.warn({ error: err?.message }, 'Erro ao criar evento processing (não crítico)'),
+    );
 
     // Processar inserção
     const resultado = await inserirContasPagarCIOT(data, eventId);
@@ -70,13 +87,11 @@ export async function inserirContasPagarCIOTController(req: Request, res: Respon
     if (resultado.status) {
       // Se temos manifestId, migrar para o eventId correto (ciot-{manifestId})
       // Isso garante que o worker encontre o mesmo evento
-      const finalEventId = resultado.manifestId 
-        ? `ciot-${resultado.manifestId}` 
-        : eventId;
-      
+      const finalEventId = resultado.manifestId ? `ciot-${resultado.manifestId}` : eventId;
+
       // Determinar código HTTP: 201 Created para novos registros, 200 OK para atualizações
       const httpStatus = resultado.created === true ? 201 : 200;
-      
+
       // Retornar resposta IMEDIATAMENTE
       res.status(httpStatus).json({
         Status: resultado.status,
@@ -118,10 +133,20 @@ export async function inserirContasPagarCIOTController(req: Request, res: Respon
                   },
                 });
                 await prisma.webhookEvent.delete({ where: { id: eventId } }).catch(() => {});
-                logger.debug({ oldEventId: eventId, newEventId: finalEventId, manifestId: resultado.manifestId }, 'Evento migrado para eventId com manifestId');
+                logger.debug(
+                  {
+                    oldEventId: eventId,
+                    newEventId: finalEventId,
+                    manifestId: resultado.manifestId,
+                  },
+                  'Evento migrado para eventId com manifestId',
+                );
               }
             } catch (migrateError: any) {
-              logger.warn({ error: migrateError?.message, oldEventId: eventId, newEventId: finalEventId }, 'Erro ao migrar evento, usando eventId original');
+              logger.warn(
+                { error: migrateError?.message, oldEventId: eventId, newEventId: finalEventId },
+                'Erro ao migrar evento, usando eventId original',
+              );
             }
           }
 
@@ -133,7 +158,10 @@ export async function inserirContasPagarCIOTController(req: Request, res: Respon
             etapa: 'backend_concluido',
           });
         } catch (bgError: any) {
-          logger.error({ error: bgError?.message, eventId: finalEventId, nrciot }, 'Erro ao atualizar eventos em background (não crítico)');
+          logger.error(
+            { error: bgError?.message, eventId: finalEventId, nrciot },
+            'Erro ao atualizar eventos em background (não crítico)',
+          );
         }
       })();
 
@@ -155,7 +183,7 @@ export async function inserirContasPagarCIOTController(req: Request, res: Respon
     // Erro de validação Zod
     if (error.name === 'ZodError') {
       logger.warn({ errors: error.errors }, 'Erro de validação no schema CIOT');
-      
+
       if (eventId) {
         await createOrUpdateWebhookEvent(
           eventId,
@@ -166,7 +194,7 @@ export async function inserirContasPagarCIOTController(req: Request, res: Respon
             nrciot: req.body.Manifest?.nrciot || req.body.manifest?.nrciot || null,
             etapa: 'validacao_falha',
             erros: error.errors,
-          }
+          },
         );
       }
 
@@ -178,7 +206,7 @@ export async function inserirContasPagarCIOTController(req: Request, res: Respon
     }
 
     logger.error({ error: error.message, stack: error.stack }, 'Erro ao processar ContasPagarCIOT');
-    
+
     if (eventId) {
       await createOrUpdateWebhookEvent(
         eventId,
@@ -189,7 +217,7 @@ export async function inserirContasPagarCIOTController(req: Request, res: Respon
           nrciot: req.body.Manifest?.nrciot || req.body.manifest?.nrciot || null,
           etapa: 'erro_interno',
           erro: error.message,
-        }
+        },
       );
     }
 
@@ -237,7 +265,10 @@ export async function cancelarContasPagarCIOTController(req: Request, res: Respo
     // Validar schema
     const data = cancelarContasPagarCIOTSchema.parse(req.body);
 
-    logger.info({ nrciot: data.Manifest.nrciot }, 'Recebida requisição para cancelar ContasPagarCIOT');
+    logger.info(
+      { nrciot: data.Manifest.nrciot },
+      'Recebida requisição para cancelar ContasPagarCIOT',
+    );
 
     // Atualizar evento para processamento
     await createOrUpdateWebhookEvent(eventId, source, 'processing', null, {
@@ -247,11 +278,7 @@ export async function cancelarContasPagarCIOTController(req: Request, res: Respo
     });
 
     // Processar cancelamento
-    await cancelarContasPagarCIOT(
-      data.Manifest.nrciot,
-      data.Obscancelado,
-      data.DsUsuarioCan
-    );
+    await cancelarContasPagarCIOT(data.Manifest.nrciot, data.Obscancelado, data.DsUsuarioCan);
 
     // Finalizar evento com sucesso
     await createOrUpdateWebhookEvent(eventId, source, 'processed', null, {
@@ -269,12 +296,18 @@ export async function cancelarContasPagarCIOTController(req: Request, res: Respo
     if (error.name === 'ZodError') {
       logger.warn({ errors: error.errors }, 'Erro de validação no schema de cancelamento CIOT');
       if (eventId) {
-        await createOrUpdateWebhookEvent(eventId, source, 'failed', 'Dados inválidos - Erro de validação', {
-          nrciot: req.body.Manifest?.nrciot || req.body.manifest?.nrciot || null,
-          etapa: 'validacao_falha',
-          acao: 'cancelamento',
-          erros: error.errors,
-        });
+        await createOrUpdateWebhookEvent(
+          eventId,
+          source,
+          'failed',
+          'Dados inválidos - Erro de validação',
+          {
+            nrciot: req.body.Manifest?.nrciot || req.body.manifest?.nrciot || null,
+            etapa: 'validacao_falha',
+            acao: 'cancelamento',
+            erros: error.errors,
+          },
+        );
       }
 
       return res.status(400).json({
@@ -297,7 +330,7 @@ export async function cancelarContasPagarCIOTController(req: Request, res: Respo
           etapa: 'erro_interno',
           acao: 'cancelamento',
           erro: error.message,
-        }
+        },
       );
     }
 
@@ -308,4 +341,3 @@ export async function cancelarContasPagarCIOTController(req: Request, res: Respo
     });
   }
 }
-

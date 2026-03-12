@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import type { WebhookEvent } from '@prisma/client';
 import { env } from './config/env';
+import { captureSentryException, flushSentry, initSentry } from './config/sentry';
 import { logger } from './utils/logger';
 import { processEvent } from './services/processor';
 import { processPendingNfse } from './services/nfseSync';
@@ -11,6 +12,8 @@ import { processPendingContasPagar } from './services/contasPagarSync';
 import { processPendingContasReceber } from './services/contasReceberSync';
 import { processPendingContasReceberBaixa } from './services/contasReceberBaixaSync';
 import { buildWorkerBypassMetadata, isPostgresSafeMode } from './utils/integrationMode';
+
+initSentry();
 
 const prisma = new PrismaClient();
 const INTERVAL_MS = Number(env.WORKER_INTERVAL_MS);
@@ -221,6 +224,10 @@ async function processBatch() {
             );
           }
         } catch (error: any) {
+          captureSentryException(error, {
+            tags: { component: 'worker', operation: 'processBatch' },
+            extra: { eventId: event.id, source: event.source },
+          });
           logger.error({ error, eventId: event.id }, 'Erro inesperado ao processar evento');
 
           const newRetryCount = event.retryCount + 1;
@@ -338,6 +345,10 @@ async function processBatch() {
       code: error?.code,
       meta: error?.meta,
     };
+    captureSentryException(error, {
+      tags: { component: 'worker', operation: 'processBatch' },
+      extra: errorDetails,
+    });
     logger.error(
       { error: errorDetails, fullError: error },
       'Erro ao buscar/processar lote de eventos',
@@ -394,10 +405,13 @@ process.on('SIGINT', async () => {
 });
 
 process.on('unhandledRejection', (reason) => {
+  captureSentryException(reason);
   logger.error({ reason }, 'Unhandled Rejection');
 });
 
 process.on('uncaughtException', (error) => {
+  captureSentryException(error);
+  void flushSentry(2000);
   logger.error({ error }, 'Uncaught Exception');
   process.exit(1);
 });

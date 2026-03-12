@@ -95,4 +95,3 @@ export type AccountingPlanningManagement = z.infer<typeof accountingPlanningMana
 export type CostCenters = z.infer<typeof costCentersSchema>;
 export type Installments = z.infer<typeof installmentsSchema>;
 export type InvoiceItems = z.infer<typeof invoiceItemsSchema>;
-

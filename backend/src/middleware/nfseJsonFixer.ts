@@ -25,7 +25,7 @@ export function nfseJsonFixer() {
 
     // Capturar o body raw
     const chunks: Buffer[] = [];
-    
+
     req.on('data', (chunk: Buffer) => {
       chunks.push(chunk);
     });
@@ -34,16 +34,19 @@ export function nfseJsonFixer() {
       try {
         const rawBody = Buffer.concat(chunks).toString('utf8');
         const originalBody = rawBody;
-        
+
         // Corrigir valores sem aspas
         const correctedBody = fixMalformedJson(originalBody);
-        
+
         if (correctedBody !== originalBody) {
-          logger.info({ 
-            url: req.url,
-            originalPreview: originalBody.substring(0, 300),
-            correctedPreview: correctedBody.substring(0, 300)
-          }, 'JSON da NFSe corrigido automaticamente - valores sem aspas foram ajustados');
+          logger.info(
+            {
+              url: req.url,
+              originalPreview: originalBody.substring(0, 300),
+              correctedPreview: correctedBody.substring(0, 300),
+            },
+            'JSON da NFSe corrigido automaticamente - valores sem aspas foram ajustados',
+          );
         }
 
         // Parsear o JSON corrigido
@@ -54,18 +57,22 @@ export function nfseJsonFixer() {
           logger.debug({ url: req.url }, 'JSON da NFSe parseado com sucesso após correção');
           return next();
         } catch (parseError: any) {
-          logger.error({ 
-            error: parseError.message,
-            url: req.url,
-            bodyPreview: correctedBody.substring(0, 500)
-          }, 'Erro ao parsear JSON da NFSe mesmo após correção');
-          
+          logger.error(
+            {
+              error: parseError.message,
+              url: req.url,
+              bodyPreview: correctedBody.substring(0, 500),
+            },
+            'Erro ao parsear JSON da NFSe mesmo após correção',
+          );
+
           // Retornar erro detalhado
           return res.status(400).json({
             error: 'JSON inválido',
-            mensagem: 'O JSON enviado está mal formatado. O sistema tentou corrigir automaticamente, mas ainda há problemas.',
+            mensagem:
+              'O JSON enviado está mal formatado. O sistema tentou corrigir automaticamente, mas ainda há problemas.',
             detalhes: `Erro de parsing: ${parseError.message}. Verifique se todos os valores de string estão entre aspas.`,
-            erroOriginal: parseError.message
+            erroOriginal: parseError.message,
           });
         }
       } catch (error: any) {
@@ -73,7 +80,7 @@ export function nfseJsonFixer() {
         return res.status(400).json({
           error: 'Erro ao processar JSON',
           mensagem: 'Ocorreu um erro ao tentar corrigir o JSON da requisição.',
-          detalhes: error.message
+          detalhes: error.message,
         });
       }
     });
@@ -83,7 +90,7 @@ export function nfseJsonFixer() {
       return res.status(400).json({
         error: 'Erro ao ler requisição',
         mensagem: 'Ocorreu um erro ao ler o corpo da requisição.',
-        detalhes: error.message
+        detalhes: error.message,
       });
     });
   };

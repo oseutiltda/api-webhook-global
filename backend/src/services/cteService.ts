@@ -8,7 +8,9 @@ const prisma = new PrismaClient();
  * Processa Inserção de CT-e
  * Insere diretamente na tabela cte (similar ao padrão NFSe)
  */
-export async function inserirCte(data: Cte): Promise<{ status: boolean; mensagem: string; cteId?: number | null; created?: boolean }> {
+export async function inserirCte(
+  data: Cte,
+): Promise<{ status: boolean; mensagem: string; cteId?: number | null; created?: boolean }> {
   try {
     if (!data) {
       return {
@@ -24,15 +26,19 @@ export async function inserirCte(data: Cte): Promise<{ status: boolean; mensagem
         authorization_number: data.authorization_number,
         status: data.status,
       },
-      'Iniciando inserção de CT-e na tabela cte'
+      'Iniciando inserção de CT-e na tabela cte',
     );
 
     // Verificar se o model Cte existe no Prisma Client
     if (!prisma.cte) {
-      logger.error({}, 'Model Cte não encontrado no Prisma Client. Execute: npm run prisma:generate');
+      logger.error(
+        {},
+        'Model Cte não encontrado no Prisma Client. Execute: npm run prisma:generate',
+      );
       return {
         status: false,
-        mensagem: 'Erro de configuração: Model Cte não encontrado. Execute: npm run prisma:generate',
+        mensagem:
+          'Erro de configuração: Model Cte não encontrado. Execute: npm run prisma:generate',
         cteId: null,
       };
     }
@@ -54,7 +60,7 @@ export async function inserirCte(data: Cte): Promise<{ status: boolean; mensagem
           statusAnterior: existing.status,
           statusNovo: data.status,
         },
-        'CT-e já existe na base de dados. Atualizando registro...'
+        'CT-e já existe na base de dados. Atualizando registro...',
       );
 
       // Atualizar o registro existente
@@ -79,7 +85,7 @@ export async function inserirCte(data: Cte): Promise<{ status: boolean; mensagem
           status: data.status,
           cteId: cte.id,
         },
-        'CT-e atualizado com sucesso na tabela cte'
+        'CT-e atualizado com sucesso na tabela cte',
       );
 
       return {
@@ -110,7 +116,7 @@ export async function inserirCte(data: Cte): Promise<{ status: boolean; mensagem
         status: data.status,
         cteId: cte.id,
       },
-      'CT-e criado com sucesso na tabela cte'
+      'CT-e criado com sucesso na tabela cte',
     );
 
     return {
@@ -121,26 +127,33 @@ export async function inserirCte(data: Cte): Promise<{ status: boolean; mensagem
     };
   } catch (error: any) {
     // Se for erro de model não encontrado ou incompatibilidade de schema (Prisma Client não gerado ou desatualizado)
-    if (error?.message?.includes('cte') || error?.message?.includes('Cte') || error?.code === 'P2001' || error?.code === 'P2032') {
+    if (
+      error?.message?.includes('cte') ||
+      error?.message?.includes('Cte') ||
+      error?.code === 'P2001' ||
+      error?.code === 'P2032'
+    ) {
       logger.error(
         {
           error: error.message,
           stack: error.stack,
           errorCode: error?.code,
-          hint: error?.code === 'P2032' 
-            ? 'Schema Prisma desatualizado ou dados incompatíveis no banco. Execute: npm run prisma:generate e reconstrua o container'
-            : 'Prisma Client precisa ser regenerado. Execute: npm run prisma:generate',
+          hint:
+            error?.code === 'P2032'
+              ? 'Schema Prisma desatualizado ou dados incompatíveis no banco. Execute: npm run prisma:generate e reconstrua o container'
+              : 'Prisma Client precisa ser regenerado. Execute: npm run prisma:generate',
         },
-        error?.code === 'P2032' 
+        error?.code === 'P2032'
           ? 'Erro de incompatibilidade de schema no banco de dados (campo updated_at com valor NULL)'
-          : 'Model Cte não encontrado no Prisma Client'
+          : 'Model Cte não encontrado no Prisma Client',
       );
 
       return {
         status: false,
-        mensagem: error?.code === 'P2032'
-          ? 'Erro de configuração: Schema Prisma desatualizado. Execute: npm run prisma:generate e reconstrua o container'
-          : 'Erro de configuração: Model Cte não encontrado. Execute: npm run prisma:generate e reconstrua o container',
+        mensagem:
+          error?.code === 'P2032'
+            ? 'Erro de configuração: Schema Prisma desatualizado. Execute: npm run prisma:generate e reconstrua o container'
+            : 'Erro de configuração: Model Cte não encontrado. Execute: npm run prisma:generate e reconstrua o container',
         cteId: null,
       };
     }
@@ -154,7 +167,7 @@ export async function inserirCte(data: Cte): Promise<{ status: boolean; mensagem
           status: data?.status,
           error: error.message,
         },
-        'CT-e já existe (erro de constraint única - race condition). Tentando atualizar...'
+        'CT-e já existe (erro de constraint única - race condition). Tentando atualizar...',
       );
 
       try {
@@ -185,7 +198,7 @@ export async function inserirCte(data: Cte): Promise<{ status: boolean; mensagem
               authorization_number: data.authorization_number,
               cteId: cte.id,
             },
-            'CT-e atualizado com sucesso após race condition'
+            'CT-e atualizado com sucesso após race condition',
           );
 
           return {
@@ -202,13 +215,14 @@ export async function inserirCte(data: Cte): Promise<{ status: boolean; mensagem
             external_id: data?.id,
             authorization_number: data?.authorization_number,
           },
-          'Erro ao tentar atualizar CT-e após race condition'
+          'Erro ao tentar atualizar CT-e após race condition',
         );
       }
 
       return {
         status: false,
-        mensagem: 'Registro já existe na base de dados, mas não foi possível atualizar. Tente novamente.',
+        mensagem:
+          'Registro já existe na base de dados, mas não foi possível atualizar. Tente novamente.',
         cteId: null,
       };
     }
@@ -223,7 +237,7 @@ export async function inserirCte(data: Cte): Promise<{ status: boolean; mensagem
         authorization_number: data?.authorization_number,
         status: data?.status,
       },
-      'Erro ao inserir CT-e'
+      'Erro ao inserir CT-e',
     );
 
     return {
@@ -233,4 +247,3 @@ export async function inserirCte(data: Cte): Promise<{ status: boolean; mensagem
     };
   }
 }
-

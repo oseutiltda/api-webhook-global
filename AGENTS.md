@@ -12,11 +12,11 @@ Diretriz principal:
 ## Agentes Especializados
 
 - Agente principal: este `AGENTS.md` coordena o plano macro da migracao.
-- Agente de banco: usar **obrigatoriamente** [AGENT_DATABASE.md](/home/afsgroup/programacao/api-webhook-global/AGENT_DATABASE.md) para toda atividade de banco de dados e dialeto SQL.
+- Agente de banco: usar **obrigatoriamente** [AGENT_DATABASE.md](/home/afsgroup/programacao/api-webhook-global/docs/agentes/AGENT_DATABASE.md) para toda atividade de banco de dados e dialeto SQL.
 
 ## Regra de delegacao obrigatoria (database)
 
-Sempre que a tarefa envolver qualquer um dos itens abaixo, o agente principal deve delegar ao `AGENT_DATABASE.md`:
+Sempre que a tarefa envolver qualquer um dos itens abaixo, o agente principal deve delegar ao `docs/agentes/AGENT_DATABASE.md`:
 
 - trocar SQL Server por PostgreSQL;
 - alterar `schema.prisma` de backend/worker;
@@ -114,7 +114,7 @@ Critério de aceite:
 
 Observacao de execucao:
 
-- Esta fase e executada pelo agente de banco conforme `AGENT_DATABASE.md`.
+- Esta fase e executada pelo agente de banco conforme `docs/agentes/AGENT_DATABASE.md`.
 
 ### Fase C - Desativar exportações/importações
 
@@ -211,7 +211,7 @@ Critério de aceite:
 
 Atualizacao estrategica:
 
-- [ ] Executar o backlog tecnico do `AGENT_DATABASE.md` (Fases 0 a 7). (em andamento: Fases 0, 1, 2, 3, 4.1, 4.2 e 4.3 concluídas; F5.1 Pessoa em progresso; F5.2 CTe com fluxo funcional validado e modo temporario somente recebimento ativo (`ENABLE_WORKER=false`); F5.3 CIOT iniciado com 5.3.1 no worker, backend pendente por prioridade)
+- [ ] Executar o backlog tecnico do `docs/agentes/AGENT_DATABASE.md` (Fases 0 a 7). (em andamento: Fases 0, 1, 2, 3, 4.1, 4.2 e 4.3 concluídas; F5.1 Pessoa em progresso; F5.2 CTe com fluxo funcional validado e modo temporario somente recebimento ativo (`ENABLE_WORKER=false`); F5.3 CIOT iniciado com 5.3.1 no worker, backend pendente por prioridade)
 
 ### 3) Segurança de integração
 

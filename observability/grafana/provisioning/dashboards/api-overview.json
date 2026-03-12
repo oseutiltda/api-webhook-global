@@ -1,0 +1,74 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "showLabels": true, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "targets": [
+        { "expr": "{service=~\"backend|worker\"}", "queryType": "range", "refId": "A" }
+      ],
+      "title": "Logs por servico (live tail)",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 2,
+      "targets": [
+        { "expr": "count_over_time({service=~\"backend|worker\"} |= \"error\" [5m])", "queryType": "range", "refId": "A" }
+      ],
+      "title": "Erros por servico (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 3,
+      "targets": [
+        { "expr": "count_over_time({service=\"backend\"} | json | res_statusCode >= 500 [24h])", "queryType": "range", "refId": "A" }
+      ],
+      "title": "Erros HTTP 5xx (24h)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 4,
+      "targets": [
+        { "expr": "quantile_over_time(0.99, {service=\"backend\"} | json | unwrap responseTime [1h])", "queryType": "range", "refId": "A" }
+      ],
+      "title": "Latencia requests p99 (1h)",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 5,
+      "targets": [
+        { "expr": "count_over_time({service=\"worker\"} |= \"Falha ao processar evento\" [5m])", "queryType": "range", "refId": "A" }
+      ],
+      "title": "Worker - falhas (5m)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 40,
+  "style": "dark",
+  "tags": ["global", "webhook", "observabilidade"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "API Webhook Global - Overview",
+  "uid": "api-webhook-global-overview",
+  "version": 1,
+  "weekStart": ""
+}

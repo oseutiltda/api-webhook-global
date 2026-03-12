@@ -38,7 +38,7 @@ function normalizePessoaPayload(body: any): any {
     normalized.TipoPessoa = normalizeTipoPessoa(body.tipoPessoa);
   }
   if (body.contatoList !== undefined && body.ContatoList === undefined) {
-    normalized.ContatoList = Array.isArray(body.contatoList) 
+    normalized.ContatoList = Array.isArray(body.contatoList)
       ? body.contatoList.map((c: any) => normalizeContato(c))
       : body.contatoList;
   }
@@ -157,7 +157,10 @@ function normalizeEndereco(endereco: any): any {
   if (!endereco) return endereco;
   return {
     CodEndereco: endereco.CodEndereco ?? endereco.codEndereco,
-    CodTipoEndereco: endereco.CodTipoEndereco ?? endereco.tipoEndereco?.codTipoEndereco ?? endereco.tipoEndereco?.CodTipoEndereco,
+    CodTipoEndereco:
+      endereco.CodTipoEndereco ??
+      endereco.tipoEndereco?.codTipoEndereco ??
+      endereco.tipoEndereco?.CodTipoEndereco,
     Cep: endereco.Cep ?? endereco.cep,
     Logradouro: endereco.Logradouro ?? endereco.logradouro,
     Numero: endereco.Numero ?? endereco.numero,
@@ -172,19 +175,29 @@ function normalizeDadosBancario(dados: any): any {
   if (!dados) return dados;
   return {
     CodDadosBancario: dados.CodDadosBancario ?? dados.codDadosBancario,
-    Banco: dados.Banco ?? dados.banco ? {
-      CodBanco: dados.banco.CodBanco ?? dados.banco.codBanco,
-      Codigo: dados.banco.Codigo ?? dados.banco.codigo,
-      Nome: dados.banco.Nome ?? dados.banco.nome,
-    } : undefined,
-    TipoConta: dados.TipoConta ?? dados.tipoConta ? {
-      CodTipoConta: dados.tipoConta.CodTipoConta ?? dados.tipoConta.codTipoConta,
-      Descricao: dados.tipoConta.Descricao ?? dados.tipoConta.descricao,
-    } : undefined,
-    Titularidade: dados.Titularidade ?? dados.titularidade ? {
-      CodTitularidade: dados.titularidade.CodTitularidade ?? dados.titularidade.codTitularidade,
-      Descricao: dados.titularidade.Descricao ?? dados.titularidade.descricao,
-    } : undefined,
+    Banco:
+      (dados.Banco ?? dados.banco)
+        ? {
+            CodBanco: dados.banco.CodBanco ?? dados.banco.codBanco,
+            Codigo: dados.banco.Codigo ?? dados.banco.codigo,
+            Nome: dados.banco.Nome ?? dados.banco.nome,
+          }
+        : undefined,
+    TipoConta:
+      (dados.TipoConta ?? dados.tipoConta)
+        ? {
+            CodTipoConta: dados.tipoConta.CodTipoConta ?? dados.tipoConta.codTipoConta,
+            Descricao: dados.tipoConta.Descricao ?? dados.tipoConta.descricao,
+          }
+        : undefined,
+    Titularidade:
+      (dados.Titularidade ?? dados.titularidade)
+        ? {
+            CodTitularidade:
+              dados.titularidade.CodTitularidade ?? dados.titularidade.codTitularidade,
+            Descricao: dados.titularidade.Descricao ?? dados.titularidade.descricao,
+          }
+        : undefined,
     NumAgencia: dados.NumAgencia ?? dados.numAgencia,
     NumConta: dados.NumConta ?? dados.numConta,
     NomeTitular: dados.NomeTitular ?? dados.nomeTitular,
@@ -196,10 +209,13 @@ function normalizeChavePix(chave: any): any {
   if (!chave) return chave;
   return {
     CodChavesPix: chave.CodChavesPix ?? chave.codChavesPix,
-    TipoChave: chave.TipoChave ?? chave.tipoChave ? {
-      CodTipoChave: chave.tipoChave.CodTipoChave ?? chave.tipoChave.codTipoChave,
-      Descricao: chave.tipoChave.Descricao ?? chave.tipoChave.descricao,
-    } : undefined,
+    TipoChave:
+      (chave.TipoChave ?? chave.tipoChave)
+        ? {
+            CodTipoChave: chave.tipoChave.CodTipoChave ?? chave.tipoChave.codTipoChave,
+            Descricao: chave.tipoChave.Descricao ?? chave.tipoChave.descricao,
+          }
+        : undefined,
     ChavePix: chave.ChavePix ?? chave.chavePix,
     NomeTitular: chave.NomeTitular ?? chave.nomeTitular,
   };
@@ -259,22 +275,31 @@ export async function inserirPessoaController(req: Request, res: Response) {
 
   try {
     // Log do body original antes da normalização
-    logger.info({ 
-      bodyKeys: Object.keys(req.body || {}),
-      temDadosBancarioListOriginal: !!(req.body?.DadosBancarioList || req.body?.dadosBancarioList),
-      dadosBancarioListOriginal: req.body?.DadosBancarioList || req.body?.dadosBancarioList,
-      dadosBancarioListLength: (req.body?.DadosBancarioList || req.body?.dadosBancarioList)?.length || 0
-    }, 'Body recebido antes da normalização');
-    
+    logger.info(
+      {
+        bodyKeys: Object.keys(req.body || {}),
+        temDadosBancarioListOriginal: !!(
+          req.body?.DadosBancarioList || req.body?.dadosBancarioList
+        ),
+        dadosBancarioListOriginal: req.body?.DadosBancarioList || req.body?.dadosBancarioList,
+        dadosBancarioListLength:
+          (req.body?.DadosBancarioList || req.body?.dadosBancarioList)?.length || 0,
+      },
+      'Body recebido antes da normalização',
+    );
+
     // Normalizar payload de camelCase para PascalCase
     req.body = normalizePessoaPayload(req.body);
-    
+
     // Log após normalização
-    logger.info({ 
-      temDadosBancarioListNormalizado: !!req.body.DadosBancarioList,
-      dadosBancarioListNormalizado: req.body.DadosBancarioList,
-      dadosBancarioListLengthNormalizado: req.body.DadosBancarioList?.length || 0
-    }, 'Body após normalização');
+    logger.info(
+      {
+        temDadosBancarioListNormalizado: !!req.body.DadosBancarioList,
+        dadosBancarioListNormalizado: req.body.DadosBancarioList,
+        dadosBancarioListLengthNormalizado: req.body.DadosBancarioList?.length || 0,
+      },
+      'Body após normalização',
+    );
 
     // Gerar eventId baseado nos dados disponíveis
     const codPessoaEsl = req.body?.CodPessoaEsl;
@@ -285,19 +310,23 @@ export async function inserirPessoaController(req: Request, res: Response) {
 
     logger.info(
       { codPessoaEsl: data.CodPessoaEsl, cpf: data.Cpf, cnpj: data.Cnpj },
-      'Recebida requisição para inserir Pessoa'
+      'Recebida requisição para inserir Pessoa',
     );
 
     // Criar/atualizar eventos em background (não bloqueia)
     createOrUpdateWebhookEvent(eventId, source, 'pending', null, {
       codPessoaEsl: codPessoaEsl || null,
       etapa: 'validacao',
-    }).catch((err: any) => logger.warn({ error: err?.message }, 'Erro ao criar evento pending (não crítico)'));
+    }).catch((err: any) =>
+      logger.warn({ error: err?.message }, 'Erro ao criar evento pending (não crítico)'),
+    );
 
     createOrUpdateWebhookEvent(eventId, source, 'processing', null, {
       codPessoaEsl: data.CodPessoaEsl || null,
       etapa: 'processamento',
-    }).catch((err: any) => logger.warn({ error: err?.message }, 'Erro ao criar evento processing (não crítico)'));
+    }).catch((err: any) =>
+      logger.warn({ error: err?.message }, 'Erro ao criar evento processing (não crítico)'),
+    );
 
     // Processar inserção/alteração
     const resultado: {
@@ -318,14 +347,12 @@ export async function inserirPessoaController(req: Request, res: Response) {
       };
 
       // Preparar dados para atualização de eventos em background
-      const finalEventId = resultado.codPessoa
-        ? `pessoa-${resultado.codPessoa}`
-        : eventId;
+      const finalEventId = resultado.codPessoa ? `pessoa-${resultado.codPessoa}` : eventId;
 
       const temFalhas = resultado.tabelasFalhadas && resultado.tabelasFalhadas.length > 0;
       const tabelasInseridas = resultado.tabelasInseridas || [];
       const tabelasFalhadas = resultado.tabelasFalhadas || [];
-      
+
       const metadata: any = {
         codPessoa: resultado.codPessoa || null,
         codPessoaEsl: data.CodPessoaEsl || null,
@@ -335,15 +362,16 @@ export async function inserirPessoaController(req: Request, res: Response) {
           totalTabelas: tabelasInseridas.length + tabelasFalhadas.length,
           sucesso: tabelasInseridas.length,
           falhas: tabelasFalhadas.length,
-        }
+        },
       };
-      
+
       let mensagemErro: string | null = null;
       if (temFalhas) {
         metadata.tabelasFalhadas = tabelasFalhadas;
-        const tabelasOk = tabelasInseridas.length > 0 
-          ? `Tabelas inseridas com sucesso: ${tabelasInseridas.join(', ')}. `
-          : '';
+        const tabelasOk =
+          tabelasInseridas.length > 0
+            ? `Tabelas inseridas com sucesso: ${tabelasInseridas.join(', ')}. `
+            : '';
         const tabelasErro = `Tabelas com erro: ${tabelasFalhadas.map((t: { tabela: string; erro: string }) => `${t.tabela} (${t.erro})`).join(', ')}.`;
         mensagemErro = tabelasOk + tabelasErro;
       }
@@ -389,23 +417,29 @@ export async function inserirPessoaController(req: Request, res: Response) {
                 await prisma.webhookEvent.delete({ where: { id: eventId } }).catch(() => {});
                 logger.debug(
                   { oldEventId: eventId, newEventId: finalEventId, codPessoa: resultado.codPessoa },
-                  'Evento migrado para eventId com codPessoa'
+                  'Evento migrado para eventId com codPessoa',
                 );
               }
             } catch (migrateError: any) {
               logger.warn(
                 { error: migrateError?.message, oldEventId: eventId, newEventId: finalEventId },
-                'Erro ao migrar evento, usando eventId original'
+                'Erro ao migrar evento, usando eventId original',
               );
             }
           }
 
           // Atualizar evento como processado
-          await createOrUpdateWebhookEvent(finalEventId, source, 'processed', mensagemErro, metadata);
+          await createOrUpdateWebhookEvent(
+            finalEventId,
+            source,
+            'processed',
+            mensagemErro,
+            metadata,
+          );
         } catch (bgError: any) {
           logger.error(
             { error: bgError?.message, eventId: finalEventId, codPessoaEsl: data.CodPessoaEsl },
-            'Erro ao atualizar eventos em background (não crítico)'
+            'Erro ao atualizar eventos em background (não crítico)',
           );
         }
       })();
@@ -439,7 +473,7 @@ export async function inserirPessoaController(req: Request, res: Response) {
             codPessoaEsl: req.body?.CodPessoaEsl || req.body?.codPessoaEsl || null,
             etapa: 'validacao_falha',
             erros: error.errors,
-          }
+          },
         );
       }
 
@@ -453,13 +487,14 @@ export async function inserirPessoaController(req: Request, res: Response) {
     // Detectar tipo de erro específico do Prisma
     let mensagemErro: string;
     let tabela: string | null = null;
-    
+
     if (error.message?.includes('does not exist in the current database')) {
       // Extrair nome da tabela/modelo do erro
-      const match = error.message.match(/column `(\w+)` does not exist.*model `(\w+)`/i) 
-        || error.message.match(/The column `(\w+)` does not exist/i)
-        || error.message.match(/model `(\w+)`/i);
-      
+      const match =
+        error.message.match(/column `(\w+)` does not exist.*model `(\w+)`/i) ||
+        error.message.match(/The column `(\w+)` does not exist/i) ||
+        error.message.match(/model `(\w+)`/i);
+
       if (match) {
         tabela = match[2] || match[1] || 'desconhecida';
         const coluna = match[1] || 'id';
@@ -474,30 +509,27 @@ export async function inserirPessoaController(req: Request, res: Response) {
       mensagemErro = error.message || 'Erro desconhecido';
     }
 
-    logger.error({ 
-      error: error.message, 
-      errorCode: error.code,
-      errorName: error.name,
-      stack: error.stack,
-      tabela,
-      codPessoaEsl: req.body?.CodPessoaEsl || req.body?.codPessoaEsl || null
-    }, 'Erro ao processar Pessoa');
+    logger.error(
+      {
+        error: error.message,
+        errorCode: error.code,
+        errorName: error.name,
+        stack: error.stack,
+        tabela,
+        codPessoaEsl: req.body?.CodPessoaEsl || req.body?.codPessoaEsl || null,
+      },
+      'Erro ao processar Pessoa',
+    );
 
     if (eventId) {
-      await createOrUpdateWebhookEvent(
-        eventId,
-        source,
-        'failed',
-        mensagemErro,
-        {
-          codPessoaEsl: req.body?.CodPessoaEsl || req.body?.codPessoaEsl || null,
-          etapa: 'erro_interno',
-          erro: mensagemErro,
-          errorCode: error.code,
-          errorName: error.name,
-          tabela: tabela || null,
-        }
-      );
+      await createOrUpdateWebhookEvent(eventId, source, 'failed', mensagemErro, {
+        codPessoaEsl: req.body?.CodPessoaEsl || req.body?.codPessoaEsl || null,
+        etapa: 'erro_interno',
+        erro: mensagemErro,
+        errorCode: error.code,
+        errorName: error.name,
+        tabela: tabela || null,
+      });
     }
 
     return res.status(500).json({
@@ -507,4 +539,3 @@ export async function inserirPessoaController(req: Request, res: Response) {
     });
   }
 }
-

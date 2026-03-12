@@ -168,4 +168,3 @@ export type ManifestFaturamento = z.infer<typeof manifestFaturamentoSchema>;
 export type Manifest = z.infer<typeof manifestSchema>;
 export type ContasPagarCIOT = z.infer<typeof contasPagarCIOTSchema>;
 export type CancelarContasPagarCIOT = z.infer<typeof cancelarContasPagarCIOTSchema>;
-

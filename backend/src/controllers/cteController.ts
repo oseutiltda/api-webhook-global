@@ -11,7 +11,7 @@ import { createOrUpdateWebhookEvent } from '../utils/webhookEvent';
 export async function inserirCteController(req: Request, res: Response) {
   let eventId: string | null = null;
   const source = '/api/CTe/InserirCte';
-  
+
   try {
     // Validar schema (aceita formato aninhado ou direto)
     const data = inserirCteSchema.parse(req.body);
@@ -29,7 +29,7 @@ export async function inserirCteController(req: Request, res: Response) {
           'CT-e não fornecido',
           {
             etapa: 'validacao_falha',
-          }
+          },
         );
         return res.status(400).json({
           Status: false,
@@ -44,9 +44,9 @@ export async function inserirCteController(req: Request, res: Response) {
     // Gerar eventId baseado nos dados
     const externalId = cteData.id;
     const authorizationNumber = cteData.authorization_number;
-    eventId = externalId 
-      ? `cte-${externalId}` 
-      : authorizationNumber 
+    eventId = externalId
+      ? `cte-${externalId}`
+      : authorizationNumber
         ? `cte-auth-${authorizationNumber}-${Date.now()}`
         : `cte-${Date.now()}`;
 
@@ -56,7 +56,7 @@ export async function inserirCteController(req: Request, res: Response) {
         authorization_number: cteData.authorization_number,
         status: cteData.status,
       },
-      'Recebida requisição para inserir CT-e'
+      'Recebida requisição para inserir CT-e',
     );
 
     // Criar/atualizar eventos em background (não bloqueia)
@@ -64,14 +64,21 @@ export async function inserirCteController(req: Request, res: Response) {
       external_id: externalId || null,
       authorization_number: authorizationNumber || null,
       etapa: 'validacao',
-    }).catch((err: any) => logger.warn({ error: err?.message, eventId }, 'Erro ao criar evento pending (não crítico)'));
+    }).catch((err: any) =>
+      logger.warn({ error: err?.message, eventId }, 'Erro ao criar evento pending (não crítico)'),
+    );
 
     createOrUpdateWebhookEvent(eventId, source, 'processing', null, {
       external_id: cteData.id,
       authorization_number: cteData.authorization_number,
       status: cteData.status,
       etapa: 'processamento',
-    }).catch((err: any) => logger.warn({ error: err?.message, eventId }, 'Erro ao criar evento processing (não crítico)'));
+    }).catch((err: any) =>
+      logger.warn(
+        { error: err?.message, eventId },
+        'Erro ao criar evento processing (não crítico)',
+      ),
+    );
 
     // Processar inserção
     const resultado = await inserirCte(cteData);
@@ -104,7 +111,7 @@ export async function inserirCteController(req: Request, res: Response) {
         } catch (bgError: any) {
           logger.error(
             { error: bgError?.message, eventId, external_id: cteData.id },
-            'Erro ao atualizar eventos em background (não crítico)'
+            'Erro ao atualizar eventos em background (não crítico)',
           );
         }
       })();
@@ -126,7 +133,12 @@ export async function inserirCteController(req: Request, res: Response) {
         status: cteData.status,
         etapa: 'backend_falha',
         mensagem: resultado.mensagem,
-      }).catch((err: any) => logger.warn({ error: err?.message, eventId }, 'Erro ao atualizar evento failed (não crítico)'));
+      }).catch((err: any) =>
+        logger.warn(
+          { error: err?.message, eventId },
+          'Erro ao atualizar evento failed (não crítico)',
+        ),
+      );
 
       return;
     }
@@ -138,13 +150,16 @@ export async function inserirCteController(req: Request, res: Response) {
         mensagem: err.message,
         valorRecebido: err.input,
       }));
-      
-      logger.warn({ 
-        errors: error.errors,
-        errorDetails,
-        bodyKeys: Object.keys(req.body || {}),
-      }, 'Erro de validação no schema CT-e');
-      
+
+      logger.warn(
+        {
+          errors: error.errors,
+          errorDetails,
+          bodyKeys: Object.keys(req.body || {}),
+        },
+        'Erro de validação no schema CT-e',
+      );
+
       if (eventId) {
         await createOrUpdateWebhookEvent(
           eventId,
@@ -155,7 +170,7 @@ export async function inserirCteController(req: Request, res: Response) {
             etapa: 'validacao_falha',
             erros: errorDetails,
             bodyKeys: Object.keys(req.body || {}),
-          }
+          },
         );
       }
 
@@ -167,7 +182,7 @@ export async function inserirCteController(req: Request, res: Response) {
     }
 
     logger.error({ error: error.message, stack: error.stack }, 'Erro ao processar CT-e');
-    
+
     if (eventId) {
       await createOrUpdateWebhookEvent(
         eventId,
@@ -177,7 +192,7 @@ export async function inserirCteController(req: Request, res: Response) {
         {
           etapa: 'erro_interno',
           erro: error.message,
-        }
+        },
       );
     }
 
@@ -188,4 +203,3 @@ export async function inserirCteController(req: Request, res: Response) {
     });
   }
 }
-

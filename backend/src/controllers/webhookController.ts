@@ -19,7 +19,7 @@ import { logger } from '../utils/logger';
 const prisma = new PrismaClient();
 
 // Helper para converter undefined em null (Prisma requer null, não undefined)
-const toNull = <T>(value: T | undefined): T | null => value === undefined ? null : value;
+const toNull = <T>(value: T | undefined): T | null => (value === undefined ? null : value);
 // Helper para campos obrigatórios string - retorna string vazia se undefined
 const toString = (value: string | undefined): string => value || '';
 // Helper para converter string | number para number | null (para campos de número do endereço)
@@ -92,14 +92,57 @@ export async function ciotParcelas(req: Request, res: Response) {
 
   // Garantir null em campos opcionais (Prisma não aceita undefined com exactOptionalPropertyTypes)
   const nullableKeys = [
-    'vlcarga','qtpesocarga','fgemitida','dtliberacaopagto','cdcentrocusto','dsobservacao','cdtipotransporte',
-    'clmercadoria','qtpeso','cdempresaconhec','nrseqcontrole','cdhistorico','dsusuariocanc','dtcancelamento',
-    'nrplacareboque2','nrplacareboque3','dsusuarioacerto','dtacerto','cdinscricaocomp','nrseriecomp',
-    'nrcomprovante','insestsenat','cdmotivocancelamento','dsobscancelamento','dsusuarioimpressao','dtimpressao',
-    'nrseloautenticidade','hrmaxentrega','cdvinculacaoiss','dthrretornociot','cdciot','cdmsgretornociot',
-    'dsmsgretornociot','inenvioarquivociot','dsavisotransportador','nrprotocolocancciot','cdndot','nrprotocoloautndot',
-    'inoperacaoperiodo','vlfreteestimado','nrprotocoloenctociot','indotimpresso','cdmoeda','nrprotocolointerroociot',
-    'inretimposto','cdintersenior','nrcodigooperpagtociot','cdseqhcm','insitcalcpedagio','nrrepom','cdtributacao'
+    'vlcarga',
+    'qtpesocarga',
+    'fgemitida',
+    'dtliberacaopagto',
+    'cdcentrocusto',
+    'dsobservacao',
+    'cdtipotransporte',
+    'clmercadoria',
+    'qtpeso',
+    'cdempresaconhec',
+    'nrseqcontrole',
+    'cdhistorico',
+    'dsusuariocanc',
+    'dtcancelamento',
+    'nrplacareboque2',
+    'nrplacareboque3',
+    'dsusuarioacerto',
+    'dtacerto',
+    'cdinscricaocomp',
+    'nrseriecomp',
+    'nrcomprovante',
+    'insestsenat',
+    'cdmotivocancelamento',
+    'dsobscancelamento',
+    'dsusuarioimpressao',
+    'dtimpressao',
+    'nrseloautenticidade',
+    'hrmaxentrega',
+    'cdvinculacaoiss',
+    'dthrretornociot',
+    'cdciot',
+    'cdmsgretornociot',
+    'dsmsgretornociot',
+    'inenvioarquivociot',
+    'dsavisotransportador',
+    'nrprotocolocancciot',
+    'cdndot',
+    'nrprotocoloautndot',
+    'inoperacaoperiodo',
+    'vlfreteestimado',
+    'nrprotocoloenctociot',
+    'indotimpresso',
+    'cdmoeda',
+    'nrprotocolointerroociot',
+    'inretimposto',
+    'cdintersenior',
+    'nrcodigooperpagtociot',
+    'cdseqhcm',
+    'insitcalcpedagio',
+    'nrrepom',
+    'cdtributacao',
   ] as const;
 
   const manifestoData: any = { ...d };
@@ -210,7 +253,9 @@ export async function faturaPagarCriar(req: Request, res: Response) {
 export async function faturaPagarBaixar(req: Request, res: Response) {
   const d = faturaPagarBaixarSchema.parse(req.body);
 
-  const parcela = await prisma.faturaPagarParcela.findFirst({ where: { installmentId: d.installment_id } });
+  const parcela = await prisma.faturaPagarParcela.findFirst({
+    where: { installmentId: d.installment_id },
+  });
   if (!parcela) {
     return res.status(404).json({ error: 'Parcela não encontrada para installment_id' });
   }
@@ -236,7 +281,11 @@ export async function faturaPagarBaixar(req: Request, res: Response) {
 
 export async function faturaPagarCancelar(req: Request, res: Response) {
   const data = faturaPagarCancelarSchema.parse(req.body);
-  await prisma.faturaPagarCancelamento.upsert({ where: { id: data.id }, update: data, create: data });
+  await prisma.faturaPagarCancelamento.upsert({
+    where: { id: data.id },
+    update: data,
+    create: data,
+  });
   return res.status(202).json({ status: 'accepted' });
 }
 
@@ -307,7 +356,9 @@ export async function faturaReceberBaixar(req: Request, res: Response) {
   const d = faturaReceberBaixarSchema.parse(req.body);
 
   // Encontrar parcela por installment_id
-  const parcela = await prisma.faturaReceberParcela.findFirst({ where: { installmentId: d.installment_id } });
+  const parcela = await prisma.faturaReceberParcela.findFirst({
+    where: { installmentId: d.installment_id },
+  });
   if (!parcela) {
     return res.status(404).json({ error: 'Parcela não encontrada para installment_id' });
   }
@@ -402,14 +453,19 @@ export async function nfseAutorizado(req: Request, res: Response) {
       valorFretePeso: toNull(logistica?.valorfretepeso),
       valorAdv: toNull(logistica?.valoradv),
       valorOutros: toNull(logistica?.valoroutros),
-      comentarioFrete: logistica?.comentariofrete ? logistica.comentariofrete.substring(0, 4000) : null,
+      comentarioFrete: logistica?.comentariofrete
+        ? logistica.comentariofrete.substring(0, 4000)
+        : null,
       usuarioAlteracao: toNull(logistica?.usuarioalteracao),
       dataAlteracao: toNull(logistica?.datadealteracao),
       dataCancelamento: toNull(logistica?.datacancelamento),
       motivoCancelamento: toNull(logistica?.motivocancelamento),
       filialCancelamento: toNull(logistica?.filialcancelamento),
       cnpjConsignatario: toNull(logistica?.cnpjConsignatario),
-      cnpjRedespacho: logistica?.cnpjRedespacho && !logistica.cnpjRedespacho.includes('#') ? logistica.cnpjRedespacho : null,
+      cnpjRedespacho:
+        logistica?.cnpjRedespacho && !logistica.cnpjRedespacho.includes('#')
+          ? logistica.cnpjRedespacho
+          : null,
       cnpjExpedidor: toNull(logistica?.cnpjexpedidor),
       valorBaseCalculoPis: toNull(logistica?.valorbasecalculopis),
       aliqPis: toNull(logistica?.aliqpis),
@@ -486,14 +542,19 @@ export async function nfseAutorizado(req: Request, res: Response) {
       valorFretePeso: toNull(logistica?.valorfretepeso),
       valorAdv: toNull(logistica?.valoradv),
       valorOutros: toNull(logistica?.valoroutros),
-      comentarioFrete: logistica?.comentariofrete ? logistica.comentariofrete.substring(0, 4000) : null,
+      comentarioFrete: logistica?.comentariofrete
+        ? logistica.comentariofrete.substring(0, 4000)
+        : null,
       usuarioAlteracao: toNull(logistica?.usuarioalteracao),
       dataAlteracao: toNull(logistica?.datadealteracao),
       dataCancelamento: toNull(logistica?.datacancelamento),
       motivoCancelamento: toNull(logistica?.motivocancelamento),
       filialCancelamento: toNull(logistica?.filialcancelamento),
       cnpjConsignatario: toNull(logistica?.cnpjConsignatario),
-      cnpjRedespacho: logistica?.cnpjRedespacho && !logistica.cnpjRedespacho.includes('#') ? logistica.cnpjRedespacho : null,
+      cnpjRedespacho:
+        logistica?.cnpjRedespacho && !logistica.cnpjRedespacho.includes('#')
+          ? logistica.cnpjRedespacho
+          : null,
       cnpjExpedidor: toNull(logistica?.cnpjexpedidor),
       valorBaseCalculoPis: toNull(logistica?.valorbasecalculopis),
       aliqPis: toNull(logistica?.aliqpis),
@@ -551,7 +612,9 @@ export async function pessoaUpsert(req: Request, res: Response) {
     // Remove endereços anteriores e recria (estratégia simples)
     await tx.pessoaEndereco.deleteMany({ where: { pessoaId: pessoaData.id } });
     if (enderecos.length > 0) {
-      await tx.pessoaEndereco.createMany({ data: enderecos.map((e) => ({ ...e, pessoaId: pessoaData.id })) });
+      await tx.pessoaEndereco.createMany({
+        data: enderecos.map((e) => ({ ...e, pessoaId: pessoaData.id })),
+      });
     }
   });
 
@@ -561,11 +624,14 @@ export async function pessoaUpsert(req: Request, res: Response) {
 // Função para inserir na tabela nfse (estrutura do banco do cliente)
 export async function nfseInserir(req: Request, res: Response) {
   try {
-    logger.info({ 
-      bodyKeys: Object.keys(req.body || {}),
-      hasInfNFeCte: !!req.body?.infNFeCte,
-    }, 'Iniciando inserção de NFSe');
-    
+    logger.info(
+      {
+        bodyKeys: Object.keys(req.body || {}),
+        hasInfNFeCte: !!req.body?.infNFeCte,
+      },
+      'Iniciando inserção de NFSe',
+    );
+
     const body = nfseAutorizadoSchema.parse(req.body);
     const n = body.infNFeCte;
     const logistica = body.dadosLogisticaFrete;
@@ -616,7 +682,8 @@ export async function nfseInserir(req: Request, res: Response) {
         external_idPrestador: (req.body.external_idPrestador as number) || 0,
         person_idPrestador: (req.body.person_idPrestador as number) || 0,
         CnpjIdentPrestador: n.prestadorServico.identificacaoPrestador.cnpj,
-        InscMunicipalPrestador: n.prestadorServico.identificacaoPrestador.inscricaoMunicipal || null,
+        InscMunicipalPrestador:
+          n.prestadorServico.identificacaoPrestador.inscricaoMunicipal || null,
         RazaoSocialPrestador: n.prestadorServico.razaoSocial,
         NomeFantasiaPrestador: n.prestadorServico.nomeFantasia || null,
         CodEnderecoPrestador: (req.body.codEnderecoPrestador as number) || null,
@@ -670,7 +737,10 @@ export async function nfseInserir(req: Request, res: Response) {
         MotivoCancelamento: logistica?.motivocancelamento || null,
         FilialCancelamento: logistica?.filialcancelamento || null,
         CnpjConsignatario: logistica?.cnpjConsignatario || null,
-        CnpjRedespacho: logistica?.cnpjRedespacho && !logistica.cnpjRedespacho.includes('#') ? logistica.cnpjRedespacho : null,
+        CnpjRedespacho:
+          logistica?.cnpjRedespacho && !logistica.cnpjRedespacho.includes('#')
+            ? logistica.cnpjRedespacho
+            : null,
         CnpjExpedidor: logistica?.cnpjexpedidor || null,
         ValorBaseCalculoPIS: logistica?.valorbasecalculopis || null,
         AliqPIS: logistica?.aliqpis || null,
@@ -697,13 +767,16 @@ export async function nfseInserir(req: Request, res: Response) {
         mensagem: err.message,
         valorRecebido: err.input,
       }));
-      
-      logger.warn({ 
-        errors: error.errors,
-        errorDetails,
-        bodyKeys: Object.keys(req.body || {}),
-      }, 'Erro de validação no schema NFSe');
-      
+
+      logger.warn(
+        {
+          errors: error.errors,
+          errorDetails,
+          bodyKeys: Object.keys(req.body || {}),
+        },
+        'Erro de validação no schema NFSe',
+      );
+
       return res.status(400).json({
         Status: false,
         Mensagem: 'Dados inválidos',
@@ -712,11 +785,9 @@ export async function nfseInserir(req: Request, res: Response) {
     }
 
     logger.error({ error: error.message, stack: error.stack }, 'Erro ao inserir NFSe');
-    return res.status(500).json({ 
-      error: 'Erro ao inserir NFSe', 
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    return res.status(500).json({
+      error: 'Erro ao inserir NFSe',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 }
-
-

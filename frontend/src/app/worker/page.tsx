@@ -108,13 +108,13 @@ interface PerformanceMetrics {
 
 function StatusBadge({ status }: { status: string | null }) {
   const statusMap: Record<string, { label: string; className: string }> = {
-    pending: { label: 'Pendente', className: 'border-blue-200 bg-blue-500/10 text-blue-600' },
-    processing: { label: 'Processando', className: 'border-sky-200 bg-sky-500/10 text-sky-600' },
+    pending: { label: 'Pendente', className: 'status-info' },
+    processing: { label: 'Processando', className: 'status-info' },
     processed: {
       label: 'Processado',
-      className: 'border-emerald-200 bg-emerald-500/10 text-emerald-600',
+      className: 'status-success',
     },
-    failed: { label: 'Falhou', className: 'border-rose-200 bg-rose-500/10 text-rose-600' },
+    failed: { label: 'Falhou', className: 'status-danger' },
   };
 
   const config = statusMap[status || 'pending'] || statusMap.pending;
@@ -299,10 +299,13 @@ export default function WorkerDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/40 pb-12">
+    <div className="page-shell">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-8 pt-10 lg:px-0">
-        <header className="flex flex-col gap-4 rounded-3xl border bg-card/70 p-6 shadow-sm backdrop-blur lg:flex-row lg:items-center lg:justify-between">
+        <header className="page-header flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
+            <Badge variant="default" className="mb-3">
+              Worker Global
+            </Badge>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">
               Dashboard do Worker
             </h1>
@@ -328,7 +331,7 @@ export default function WorkerDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total de Eventos</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
+                <Activity className="h-4 w-4 text-[var(--brand-accent)]" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -341,10 +344,12 @@ export default function WorkerDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
-                <Clock className="h-4 w-4 text-blue-500" />
+                <Clock className="h-4 w-4 text-[var(--brand-info)]" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{stats.pending || 0}</div>
+                <div className="text-2xl font-bold text-[var(--brand-info)]">
+                  {stats.pending || 0}
+                </div>
                 <p className="text-xs text-muted-foreground">Aguardando processamento</p>
               </CardContent>
             </Card>
@@ -352,10 +357,10 @@ export default function WorkerDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Processados (24h)</CardTitle>
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <CheckCircle2 className="h-4 w-4 text-[var(--brand-success)]" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-emerald-600">
+                <div className="text-2xl font-bold text-[var(--brand-success)]">
                   {(stats.processedLast24h || 0).toLocaleString()}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -367,10 +372,10 @@ export default function WorkerDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Falhas</CardTitle>
-                <XCircle className="h-4 w-4 text-rose-500" />
+                <XCircle className="h-4 w-4 text-[var(--brand-danger)]" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-rose-600">
+                <div className="text-2xl font-bold text-[var(--brand-danger)]">
                   {((stats.failedLast24h ?? stats.failed) || 0).toLocaleString()}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -548,7 +553,7 @@ export default function WorkerDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-rose-500" />
+                  <AlertCircle className="h-5 w-5 text-[var(--brand-danger)]" />
                   Falhas Críticas
                 </CardTitle>
                 <CardDescription>
@@ -597,7 +602,7 @@ export default function WorkerDashboard() {
                                   text={event.errorMessage || 'Erro desconhecido'}
                                   maxLength={50}
                                   title="Mensagem de erro completa"
-                                  className="text-rose-600"
+                                  className="text-[var(--brand-danger)]"
                                 />
                               </TableCell>
                             </TableRow>

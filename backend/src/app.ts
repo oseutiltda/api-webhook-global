@@ -5,7 +5,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import pinoHttp from 'pino-http';
+import { initSentry, setupSentryExpressErrorHandler } from './config/sentry';
 import { errorHandler } from './middleware/error';
+import { requestIdMiddleware } from './middleware/requestId';
 import webhookRouter from './routes/webhooks';
 import dashboardRouter from './routes/dashboard';
 import {
@@ -27,9 +29,18 @@ import * as contasReceberBaixaController from './controllers/contasReceberBaixaC
 import { openApiSpec, renderSwaggerUiHtml } from './docs/openapi';
 import { logger } from './utils/logger';
 
+initSentry();
+
 const app = express();
 
-app.use(pinoHttp({ logger } as any));
+app.use(requestIdMiddleware);
+app.use(
+  pinoHttp({
+    logger,
+    genReqId: (req: express.Request) => req.id,
+    customProps: (req: express.Request) => ({ requestId: req.id }),
+  } as any),
+);
 app.use(helmet());
 app.use(cors());
 
@@ -129,6 +140,7 @@ app.post(
 app.use('/webhooks', webhookRouter);
 app.use('/api', dashboardRouter);
 
+setupSentryExpressErrorHandler(app);
 app.use(errorHandler);
 
 export default app;

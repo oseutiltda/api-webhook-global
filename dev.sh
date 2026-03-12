@@ -211,4 +211,4 @@ echo "  - Backend:  http://$DEV_HOST:$BACKEND_PORT/health"
 echo "  - Swagger:  http://$DEV_HOST:$BACKEND_PORT/docs"
 echo "  - Frontend: http://$DEV_HOST:$FRONTEND_PORT"
 echo
-echo "[dev] Para encerrar use: ./dev-stop.sh"
+echo "[dev] Para encerrar use: ./scripts/dev/dev-stop.sh"

@@ -1,5 +1,6 @@
 import { createServer } from 'http';
 import app from './app';
+import { captureSentryException, flushSentry } from './config/sentry';
 import { logger } from './utils/logger';
 
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -15,7 +16,7 @@ process.on('unhandledRejection', (reason, promise) => {
   const errorDetails: any = {
     promise: promise?.toString(),
   };
-  
+
   if (reason instanceof Error) {
     errorDetails.message = reason.message;
     errorDetails.stack = reason.stack;
@@ -25,13 +26,14 @@ process.on('unhandledRejection', (reason, promise) => {
   } else {
     errorDetails.reason = String(reason);
   }
-  
+
   logger.error(errorDetails, 'Unhandled Rejection');
+  captureSentryException(reason);
 });
 
 process.on('uncaughtException', (error) => {
+  captureSentryException(error);
+  void flushSentry(2000);
   logger.error({ error }, 'Uncaught Exception');
   process.exit(1);
 });
-
-

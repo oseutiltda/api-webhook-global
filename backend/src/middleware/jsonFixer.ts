@@ -8,18 +8,18 @@ import { logger } from '../utils/logger';
 export function fixMalformedJson(bodyStr: string): string {
   // Campos que podem conter valores como "S/N" sem aspas
   const fieldsToFix = ['numero', 'Numero', 'NUMERO'];
-  
+
   let corrected = bodyStr;
-  
+
   for (const field of fieldsToFix) {
     // Regex para encontrar: "campo": valor_sem_aspas (seguido de , ou } ou espaço)
     // Captura casos como: "numero": S/N,  ou  "numero": S/N}
     // Também captura casos no final de objeto sem vírgula
     const regex = new RegExp(
       `("${field}"\\s*:\\s*)([A-Za-z][A-Za-z0-9/\\-]+?)(\\s*[,\\}\\n])`,
-      'g'
+      'g',
     );
-    
+
     corrected = corrected.replace(regex, (match, prefix, value, suffix) => {
       // Se o valor já tem aspas, não modificar
       if (value.startsWith('"') || value.startsWith("'")) {
@@ -35,6 +35,6 @@ export function fixMalformedJson(bodyStr: string): string {
       return `${prefix}"${escapedValue}"${suffix}`;
     });
   }
-  
+
   return corrected;
 }

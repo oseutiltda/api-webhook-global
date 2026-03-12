@@ -38,24 +38,21 @@ export async function inserirContasPagarController(req: Request, res: Response) 
     const contasPagar = contasPagarSchema.parse(normalizedBody);
 
     // Gerar eventId baseado no document ou id
-    eventId = generateContasPagarEventId(
-      contasPagar.data.document,
-      contasPagar.data.id
-    );
+    eventId = generateContasPagarEventId(contasPagar.data.document, contasPagar.data.id);
 
     // Criar registro inicial no WebhookEvent
     webhookEventId = eventId;
     await createOrUpdateWebhookEvent(
       webhookEventId,
       '/api/ContasPagar/InserirContasPagar',
-      'pending'
+      'pending',
     );
 
     // Atualizar status para processing
     await createOrUpdateWebhookEvent(
       webhookEventId,
       '/api/ContasPagar/InserirContasPagar',
-      'processing'
+      'processing',
     );
 
     // Chamar service para inserir (o service já atualiza o WebhookEvent com detalhes das tabelas)
@@ -73,7 +70,7 @@ export async function inserirContasPagarController(req: Request, res: Response) 
           document: contasPagar.data.document,
           processingTimeMs: processingTime,
         },
-        resultado.mensagem
+        resultado.mensagem,
       );
 
       return res.status(202).json({
@@ -90,7 +87,7 @@ export async function inserirContasPagarController(req: Request, res: Response) 
           error: resultado.mensagem,
           processingTimeMs: processingTime,
         },
-        'Falha ao processar conta a pagar'
+        'Falha ao processar conta a pagar',
       );
 
       return res.status(400).json({
@@ -107,7 +104,7 @@ export async function inserirContasPagarController(req: Request, res: Response) 
       const errors = error.errors || error.issues || [];
       const errorMessages = errors
         .map((e: any) => {
-          const path = Array.isArray(e.path) ? e.path.join('.') : (e.path || 'unknown');
+          const path = Array.isArray(e.path) ? e.path.join('.') : e.path || 'unknown';
           return `${path}: ${e.message || 'Erro de validação'}`;
         })
         .join(', ');
@@ -121,7 +118,7 @@ export async function inserirContasPagarController(req: Request, res: Response) 
           {
             integrationStatus: 'failed',
             processingTimeMs: processingTime,
-          }
+          },
         );
       }
 
@@ -131,7 +128,7 @@ export async function inserirContasPagarController(req: Request, res: Response) 
           error: errorMessages,
           processingTimeMs: processingTime,
         },
-        'Erro de validação ao inserir conta a pagar'
+        'Erro de validação ao inserir conta a pagar',
       );
 
       return res.status(400).json({
@@ -150,7 +147,7 @@ export async function inserirContasPagarController(req: Request, res: Response) 
         {
           integrationStatus: 'failed',
           processingTimeMs: processingTime,
-        }
+        },
       );
     }
 
@@ -161,7 +158,7 @@ export async function inserirContasPagarController(req: Request, res: Response) 
         stack: error.stack,
         processingTimeMs: processingTime,
       },
-      'Erro inesperado ao inserir conta a pagar'
+      'Erro inesperado ao inserir conta a pagar',
     );
 
     return res.status(500).json({
@@ -179,9 +176,10 @@ function normalizeContasPagarPayload(body: any): any {
 
   // Normalizar campos principais
   if (body.installment_count !== undefined) {
-    normalized.installment_count = typeof body.installment_count === 'string' 
-      ? parseFloat(body.installment_count) || 0 
-      : body.installment_count;
+    normalized.installment_count =
+      typeof body.installment_count === 'string'
+        ? parseFloat(body.installment_count) || 0
+        : body.installment_count;
   }
 
   // Normalizar data
@@ -224,7 +222,8 @@ function normalizeContasPagarData(data: any): any {
     normalized.comments = data.comments;
   }
   if (data.cancelado !== undefined) {
-    normalized.cancelado = typeof data.cancelado === 'string' ? parseFloat(data.cancelado) || 0 : data.cancelado;
+    normalized.cancelado =
+      typeof data.cancelado === 'string' ? parseFloat(data.cancelado) || 0 : data.cancelado;
   }
   if (data.Obscancelado !== undefined) {
     normalized.Obscancelado = data.Obscancelado;
@@ -236,10 +235,14 @@ function normalizeContasPagarData(data: any): any {
   // Normalizar corporation
   if (data.corporation) {
     normalized.corporation = {
-      id: typeof data.corporation.id === 'string' ? parseFloat(data.corporation.id) || 0 : data.corporation.id,
-      person_id: typeof (data.corporation.person_id ?? data.corporation.personId) === 'string'
-        ? parseFloat(data.corporation.person_id ?? data.corporation.personId) || 0
-        : (data.corporation.person_id ?? data.corporation.personId),
+      id:
+        typeof data.corporation.id === 'string'
+          ? parseFloat(data.corporation.id) || 0
+          : data.corporation.id,
+      person_id:
+        typeof (data.corporation.person_id ?? data.corporation.personId) === 'string'
+          ? parseFloat(data.corporation.person_id ?? data.corporation.personId) || 0
+          : (data.corporation.person_id ?? data.corporation.personId),
       nickname: data.corporation.nickname,
       cnpj: data.corporation.cnpj,
     };
@@ -248,7 +251,8 @@ function normalizeContasPagarData(data: any): any {
   // Normalizar receiver
   if (data.receiver) {
     normalized.receiver = {
-      id: typeof data.receiver.id === 'string' ? parseFloat(data.receiver.id) || 0 : data.receiver.id,
+      id:
+        typeof data.receiver.id === 'string' ? parseFloat(data.receiver.id) || 0 : data.receiver.id,
       name: data.receiver.name,
       type: data.receiver.type,
       cnpj: data.receiver.cnpj,
@@ -280,16 +284,19 @@ function normalizeContasPagarData(data: any): any {
   // Normalizar installments
   if (data.installments && Array.isArray(data.installments)) {
     normalized.installments = data.installments.map((inst: any) => ({
-      id: typeof inst.id === 'string' ? parseFloat(inst.id) || 0 : (inst.id || 0),
-      position: typeof inst.position === 'string' ? parseFloat(inst.position) || 0 : (inst.position || 0),
+      id: typeof inst.id === 'string' ? parseFloat(inst.id) || 0 : inst.id || 0,
+      position:
+        typeof inst.position === 'string' ? parseFloat(inst.position) || 0 : inst.position || 0,
       due_date: inst.due_date ?? inst.dueDate,
-      value: typeof inst.value === 'string' ? parseFloat(inst.value) || 0 : (inst.value || 0),
-      interest_value: typeof inst.interest_value === 'string' || typeof inst.interestValue === 'string' 
-        ? parseFloat(inst.interest_value ?? inst.interestValue) || 0 
-        : (inst.interest_value ?? inst.interestValue ?? 0),
-      discount_value: typeof inst.discount_value === 'string' || typeof inst.discountValue === 'string'
-        ? parseFloat(inst.discount_value ?? inst.discountValue) || 0
-        : (inst.discount_value ?? inst.discountValue ?? 0),
+      value: typeof inst.value === 'string' ? parseFloat(inst.value) || 0 : inst.value || 0,
+      interest_value:
+        typeof inst.interest_value === 'string' || typeof inst.interestValue === 'string'
+          ? parseFloat(inst.interest_value ?? inst.interestValue) || 0
+          : (inst.interest_value ?? inst.interestValue ?? 0),
+      discount_value:
+        typeof inst.discount_value === 'string' || typeof inst.discountValue === 'string'
+          ? parseFloat(inst.discount_value ?? inst.discountValue) || 0
+          : (inst.discount_value ?? inst.discountValue ?? 0),
       payment_method: inst.payment_method ?? inst.paymentMethod,
       comments: inst.comments,
       payment_date: inst.payment_date ?? inst.paymentDate,
@@ -301,30 +308,36 @@ function normalizeContasPagarData(data: any): any {
     const items = data.invoice_items || data.invoiceItems;
     if (Array.isArray(items)) {
       normalized.invoice_items = items.map((item: any) => ({
-        id: typeof item.id === 'string' ? parseFloat(item.id) || 0 : (item.id || 0),
-        freight_id: typeof item.freight_id === 'string' || typeof item.freightId === 'string'
-          ? parseFloat(item.freight_id ?? item.freightId) || 0
-          : (item.freight_id ?? item.freightId ?? 0),
+        id: typeof item.id === 'string' ? parseFloat(item.id) || 0 : item.id || 0,
+        freight_id:
+          typeof item.freight_id === 'string' || typeof item.freightId === 'string'
+            ? parseFloat(item.freight_id ?? item.freightId) || 0
+            : (item.freight_id ?? item.freightId ?? 0),
         cte_key: item.cte_key ?? item.cteKey,
-        cte_number: typeof item.cte_number === 'string' || typeof item.cteNumber === 'string'
-          ? parseFloat(item.cte_number ?? item.cteNumber) || 0
-          : (item.cte_number ?? item.cteNumber ?? 0),
-        cte_series: typeof item.cte_series === 'string' || typeof item.cteSeries === 'string'
-          ? parseFloat(item.cte_series ?? item.cteSeries) || 0
-          : (item.cte_series ?? item.cteSeries ?? 0),
+        cte_number:
+          typeof item.cte_number === 'string' || typeof item.cteNumber === 'string'
+            ? parseFloat(item.cte_number ?? item.cteNumber) || 0
+            : (item.cte_number ?? item.cteNumber ?? 0),
+        cte_series:
+          typeof item.cte_series === 'string' || typeof item.cteSeries === 'string'
+            ? parseFloat(item.cte_series ?? item.cteSeries) || 0
+            : (item.cte_series ?? item.cteSeries ?? 0),
         payer_name: item.payer_name ?? item.payerName,
         // draft_number, nfse_number e nfse_series devem ser strings (converter número para string se necessário)
-        draft_number: item.draft_number ?? item.draftNumber 
-          ? String(item.draft_number ?? item.draftNumber) 
-          : undefined,
-        nfse_number: item.nfse_number ?? item.nfseNumber 
-          ? String(item.nfse_number ?? item.nfseNumber) 
-          : undefined,
-        nfse_series: item.nfse_series ?? item.nfseSeries 
-          ? String(item.nfse_series ?? item.nfseSeries) 
-          : undefined,
+        draft_number:
+          (item.draft_number ?? item.draftNumber)
+            ? String(item.draft_number ?? item.draftNumber)
+            : undefined,
+        nfse_number:
+          (item.nfse_number ?? item.nfseNumber)
+            ? String(item.nfse_number ?? item.nfseNumber)
+            : undefined,
+        nfse_series:
+          (item.nfse_series ?? item.nfseSeries)
+            ? String(item.nfse_series ?? item.nfseSeries)
+            : undefined,
         type: item.type,
-        total: typeof item.total === 'string' ? parseFloat(item.total) || 0 : (item.total || 0),
+        total: typeof item.total === 'string' ? parseFloat(item.total) || 0 : item.total || 0,
       }));
     }
   }

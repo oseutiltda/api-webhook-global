@@ -47,5 +47,3 @@ export function parseCteCancelado(xml: string) {
     emitCnpj: infEvento?.CNPJ || null,
   } as const;
 }
-
-

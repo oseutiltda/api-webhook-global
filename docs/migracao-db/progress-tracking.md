@@ -8,19 +8,206 @@
 
 ## Estado atual
 
-- Data da ultima atualizacao: 2026-03-05
+- Data da ultima atualizacao: 2026-03-12
 - Fase atual: Fase 5 (migracao por dominio) - etapa 5.3/5.4 em andamento
 - Status geral: em andamento
 
 ## Ultimo checkpoint concluido
 
+- Checkpoint: `F6.9.1-execucao-branding-global-sutil`
+- Resultado:
+  - branding visual Global aplicado de ponta a ponta no frontend com criterio sobrio:
+    - `frontend/src/app/globals.css`
+    - `frontend/src/components/ui/button.tsx`
+    - `frontend/src/components/ui/badge.tsx`
+    - `frontend/src/components/ui/card.tsx`
+    - `frontend/src/components/ui/input.tsx`
+    - `frontend/src/components/ui/table.tsx`
+    - `frontend/src/components/ui/tabs.tsx`
+    - `frontend/src/components/ui/chart.tsx`
+    - `frontend/src/components/ui/scroll-area.tsx`
+    - `frontend/src/components/ui/metadata-cell.tsx`
+    - `frontend/src/components/ui/truncated-cell.tsx`
+    - `frontend/src/components/LoginForm.tsx`
+    - `frontend/src/app/dashboard/page.tsx`
+    - `frontend/src/app/page.tsx`
+    - `frontend/src/app/worker/page.tsx`
+    - `frontend/src/app/worker1/page.tsx`
+    - `frontend/src/app/layout.tsx`
+  - direcao aplicada:
+    - azul institucional Global como ancora estrutural
+    - vermelho operacional concentrado em CTA e alertas
+    - superficies claras, bordas suaves e contrastes reduzidos
+    - reducao de gradientes e cores concorrentes nas telas
+  - validacao obrigatoria executada no frontend:
+    - `npm run typecheck` OK
+    - `npx prettier --check ...` OK
+    - `npm run lint` OK sem erros; warnings preexistentes permaneceram em hooks/unused vars fora do escopo visual
+  - validacao visual executada via Playwright:
+    - `http://127.0.0.1:3001/login`
+    - `http://127.0.0.1:3001/dashboard`
+    - `http://127.0.0.1:3001/worker`
+    - `http://127.0.0.1:3001/worker1`
+    - dashboard tambem conferido em viewport mobile
+- Checkpoint: `F6.12-login-cover-loading-refino-sobrio`
+- Resultado:
+  - estado inicial da imagem de capa no login refinado para remover o blur agressivo durante o carregamento:
+    - `frontend/src/components/LoginForm.tsx` deixou de usar `placeholder="blur"`
+    - fundo de carregamento passou a usar gradiente neutro e discreto
+    - imagem agora entra com `fade-in` suave apos `onLoad`
+    - fallback de erro preserva estado visual estavel sem efeito assustador
+  - validacao obrigatoria executada no frontend:
+    - `npx prettier --write src/components/LoginForm.tsx` OK
+    - `npx prettier --check src/components/LoginForm.tsx` OK
+    - `npm run typecheck` OK
+    - `npm run lint` permanece com falha por debito preexistente fora do escopo desta mudanca:
+      - erro em `frontend/src/components/ui/metadata-cell.tsx` (`@typescript-eslint/no-explicit-any`)
+      - warnings preexistentes em `dashboard/page.tsx`, `page.tsx`, `worker/page.tsx`, `worker1/page.tsx`, `metadata-cell.tsx`, `truncated-cell.tsx` e `start.js`
+- Checkpoint: `F6.11-limpeza-prints-raiz`
+- Resultado:
+  - imagens de print soltas na raiz removidas por nao fazerem parte do app nem terem referencias no codigo:
+    - `globalcargo-home.png`
+    - `left-panel-better.png`
+    - `left-panel-current.png`
+    - `left-panel-refined.png`
+    - `login-current-1440.png`
+    - `login-current.png`
+    - `login-refined-1440.png`
+    - `login-subtle-refinement.png`
+  - validacao executada:
+    - busca por referencias no repositório retornou vazio antes da remocao
+- Checkpoint: `F6.10-docs-e-scripts-organizados`
+- Resultado:
+  - documentos markdown fora de `docs/` reorganizados:
+    - `AGENT_DATABASE.md` -> `docs/agentes/AGENT_DATABASE.md`
+    - `GUIA-TESTE-WEBHOOK-CTE-PROD.md` -> `docs/guias/guia-teste-webhook-cte-prod.md`
+    - `backend/docs/DIAGNOSTICO_FALHAS.md` -> `docs/backend/diagnostico-falhas.md`
+    - `frontend/public/README_IMAGEM_CAPA.md` -> `docs/frontend/assets/README_IMAGEM_CAPA.md`
+  - scripts de raiz reorganizados por dominio operacional:
+    - `scripts/deploy/`
+    - `scripts/smoke/`
+    - `scripts/ops/`
+    - `scripts/dev/`
+  - excecoes preservadas conforme solicitado:
+    - `AGENTS.md`
+    - `CODEX.md`
+    - `dev.sh`
+  - referencias internas atualizadas para a nova estrutura:
+    - `AGENTS.md`
+    - `dev.sh`
+    - `docs/observabilidade-runbook.md`
+    - `docs/migracao-db/progress-tracking.md`
+    - mensagens de ajuda e root path dos scripts movidos
+  - validacao executada:
+    - raiz limpa para `.md` e `.sh`, restando apenas `AGENTS.md`, `CODEX.md` e `dev.sh`
+    - `bash -n` OK para `scripts/deploy/*.sh`, `scripts/dev/*.sh`, `scripts/ops/*.sh` e `scripts/smoke/*.sh`
+- Checkpoint: `F6.9-plan-branding-global-sutil`
+- Resultado:
+  - plano executivo de branding visual Global criado em:
+    - `docs/migracao-db/fase-6-9-branding-global-sutil.md`
+  - direcao visual definida com base no site oficial `https://globalcargo.com.br/`:
+    - azul institucional profundo como ancora estrutural
+    - vermelho operacional reservado a CTA e alertas
+    - aplicacao sutil, sobria e profissional no frontend
+  - plano documenta:
+    - intencao de design
+    - paleta proposta
+    - mapa de impacto por arquivos
+    - fases de execucao
+    - checklist operacional
+    - checklist de sobriedade
+    - tracking incremental e proximo checkpoint
+  - proximo checkpoint registrado:
+    - `F6.9.1-auditoria-visual-tokens-global`
+- Checkpoint: `F6.8-dashboard-header-logo-global`
+- Resultado:
+  - logo do header do dashboard atualizada para o asset Global:
+    - `frontend/src/app/dashboard/page.tsx` trocado de `'/logo-bmx-cima.png'` para `'/logo-global-cima.png'`
+  - proximo passo natural:
+    - varrer demais telas e assets residuais com branding BMX no frontend
+- Checkpoint: `F6.7-dashboard-brand-text-global`
+- Resultado:
+  - branding textual do dashboard atualizado para remover referencia visivel a BMX:
+    - `frontend/src/app/dashboard/page.tsx` trocado de `BMX Integrador` para `Global Integrador`
+    - `alt` do logo ajustado de `BMX Serviços` para `Global`
+  - validacao obrigatoria executada no frontend:
+    - `npm run typecheck` OK
+    - `npx prettier --check src/app/dashboard/page.tsx` OK
+    - `npm run lint` permanece com falha por debito preexistente fora do escopo desta mudanca:
+      - erro em `frontend/src/components/ui/metadata-cell.tsx` (`@typescript-eslint/no-explicit-any`)
+      - warnings preexistentes em paginas e componentes ja mapeados
+- Checkpoint: `F6.6-frontend-favicon-public-fix`
+- Resultado:
+  - favicon do frontend corrigido para usar explicitamente o asset de `public`:
+    - `frontend/src/app/layout.tsx` atualizado de `'/favicon.ico'` para `'/favicon.png'`
+    - `frontend/src/app/favicon.ico` removido para evitar precedencia automatica do App Router sobre o arquivo de `public`
+  - validacao esperada do runtime:
+    - navegadores passam a requisitar o asset de `frontend/public/favicon.png` como icone principal do app
+  - validacao obrigatoria executada no frontend:
+    - `npm run typecheck` OK
+    - `npx prettier --check src/app/layout.tsx` OK
+    - `npm run lint` com falha por debito preexistente fora do escopo desta mudanca:
+      - erro em `frontend/src/components/ui/metadata-cell.tsx` (`@typescript-eslint/no-explicit-any`)
+      - warnings preexistentes em `dashboard/page.tsx`, `page.tsx`, `worker/page.tsx`, `worker1/page.tsx`, `truncated-cell.tsx` e `start.js`
 - Checkpoint: `F6.4-scripts-deploy-operacional`
 - Resultado:
+  - `F6.5-login-globalcargo-brand-refresh` concluido:
+    - tela de login do frontend redesenhada com referencia visual do site oficial `https://globalcargo.com.br/`
+    - escopo corrigido para preservar a imagem de capa original na coluna esquerda
+    - linguagem visual trocada de BMX/gold para Global Cargo apenas no formulario da direita, com:
+      - azul institucional aplicado na identidade do card e foco dos campos
+      - vermelho operacional como CTA primario
+      - fundo claro com bordas suaves e card de autenticacao
+      - estrutura original da tela mantida (`capa.jpg` + formulario)
+    - implementacao concentrada em:
+      - `frontend/src/components/LoginForm.tsx`
+    - refinamento visual validado localmente via Playwright em `http://127.0.0.1:3001/login`:
+      - imagem de capa mantida intacta na esquerda
+      - coluna direita recebeu fundo mais coerente com a marca, card mais ancorado e CTA refinado
+      - campos agora usam `autoComplete` para reduzir ruido de UX no browser
+    - simplificacao adicional do painel direito aplicada:
+      - removidos textos auxiliares fora do formulario
+      - card mantido apenas com `Bem-vindo de volta` e `Faça login para acessar sua conta.`
+      - bloco superior `Autenticacao` / `Acesso restrito ao ambiente operacional` preservado
+    - refinamento sutil adicional aplicado com criterio de baixo contraste visual:
+      - micro ajuste de profundidade do card e do icone de cabecalho
+      - textura de fundo quase imperceptivel na coluna direita
+      - campos com superficie levemente aquecida e sombra interna minima
+      - CTA com elevacao discreta para melhorar leitura sem chamar atencao em excesso
+    - capa do login ajustada para caminho otimizado do `next/image`:
+      - troca de string path por import estatico de `capa.jpg`
+      - remocao de `unoptimized`
+      - `quality={100}` para preservar fidelidade visual maxima
+      - `placeholder="blur"` automatico via metadata da imagem
+      - `fetchPriority="high"` para acelerar carregamento acima da dobra
+    - painel esquerdo refinado para temperatura mais azulada:
+      - gradiente de fundo superior/inferior movido de neutro para azul frio
+      - overlay lateral e fade inferior alinhados ao novo tom sem interferir na leitura da capa
+    - contraste do painel esquerdo ajustado em segunda passada:
+      - azul de base levemente intensificado para destacar melhor a capa
+      - overlays mantidos discretos para nao competir com a imagem
+    - refinamento do painel esquerdo refeito com validacao visual via Playwright:
+      - fundo trocado de azul chapado para camadas com centro nebuloso e bordas mais profundas
+      - faixas superior e inferior integradas ao conjunto, com contraste melhor com a foto
+      - resultado prioriza moldura da capa em vez de apenas saturar a cor de base
+    - painel esquerdo ajustado novamente por direcao visual:
+      - composicao retornada para base mais branca
+      - azul reduzido para papel secundario e bem sutil
+      - topo e base clareados para deixar a capa respirar melhor
+    - refinamento final do painel esquerdo:
+      - fundo simplificado para quase branco com vinheta azul muito leve nas bordas
+      - composicao ficou mais limpa e menos artificial ao redor da capa
+    - validacao obrigatoria executada no frontend:
+      - `npm run typecheck` OK
+      - `npx prettier --check src/components/LoginForm.tsx` OK
+      - `npm run lint` com falha por debito preexistente fora do escopo desta mudanca:
+        - erro em `frontend/src/components/ui/metadata-cell.tsx` (`@typescript-eslint/no-explicit-any`)
+        - warnings preexistentes em `dashboard/page.tsx`, `page.tsx`, `worker/page.tsx`, `worker1/page.tsx`, `truncated-cell.tsx` e `start.js`
   - `F6.4-scripts-deploy-operacional` concluido:
     - scripts de deploy adicionados na raiz:
-      - `deploy.sh` (stack completa)
-      - `deploy-front.sh` (somente frontend)
-      - `deploy-back.sh` (somente backend)
+      - `scripts/deploy/deploy.sh` (stack completa)
+      - `scripts/deploy/deploy-front.sh` (somente frontend)
+      - `scripts/deploy/deploy-back.sh` (somente backend)
     - fluxo aplicado nos scripts:
       - `docker compose down`
       - `git pull --ff-only`
@@ -28,8 +215,8 @@
       - `docker compose up -d`
       - `docker compose logs --tail 100 -f`
     - validacao local:
-      - `chmod +x deploy.sh deploy-front.sh deploy-back.sh`
-      - `bash -n deploy.sh deploy-front.sh deploy-back.sh` OK
+      - `chmod +x scripts/deploy/deploy.sh scripts/deploy/deploy-front.sh scripts/deploy/deploy-back.sh`
+      - `bash -n scripts/deploy/deploy.sh scripts/deploy/deploy-front.sh scripts/deploy/deploy-back.sh` OK
   - `F6.3-api-base-url-globalcargo` concluido:
     - `NEXT_PUBLIC_API_BASE_URL` padronizada para `https://globalcargo.afsgroup.com.br/api` em:
       - `.env.example`
@@ -59,7 +246,7 @@
     - logs/metadados de bypass padronizados com `buildBypassMetadata('ciotService', ...)`
     - caminho legado SQL Server/stored procedures foi preservado para cenarios fora do modo seguro
     - script de smoke CIOT preparado na raiz para acelerar validacao funcional do proximo checkpoint:
-      - `smoke-ciot.sh` (create/update/cancel via `/api/CIOT/*`)
+      - `scripts/smoke/smoke-ciot.sh` (create/update/cancel via `/api/CIOT/*`)
     - validacao obrigatoria executada sem regressao:
       - backend: `npm run lint` (warnings preexistentes) e `npm run typecheck` OK
       - worker: `npm run lint` (warnings preexistentes) e `npm run typecheck` OK
@@ -122,7 +309,7 @@
     - deduplicacao basica aplicada na baixa local (mesma parcela + data + valor retorna sucesso controlado)
     - caminho legado (SQL Server/Senior) preservado para cenarios fora do modo PostgreSQL local
   - smoke de baixa de Contas a Receber criado:
-    - `smoke-contas-receber-baixa.sh`
+    - `scripts/smoke/smoke-contas-receber-baixa.sh`
     - cobre `POST /api/ContasReceber/InserirContasReceber`, `POST /api/ContasReceber/InserirContasReceberBaixa` e webhook de baixa com duplicate (`/webhooks/faturas/receber/baixar`)
     - payloads gerados em arquivo temporario para evitar JSON quebrado por shell multiline
     - inclui timeout de rede e resumo final de `PASS/FAIL`
@@ -143,7 +330,7 @@
     - evita execucao de SQL Server/stored procedures no caminho principal desse endpoint
     - resposta passa a retornar sucesso controlado no modo local (criacao/atualizacao/cancelamento), com log estruturado
   - script de validacao de Contas a Pagar criado na raiz:
-    - `smoke-contas-pagar.sh`
+    - `scripts/smoke/smoke-contas-pagar.sh`
     - cobre `POST /api/ContasPagar/InserirContasPagar`, `POST /webhooks/faturas/pagar/criar` e duplicate por `x-event-id`
     - gera payloads em arquivo temporario com IDs/eventId unicos para evitar erro de JSON quebrado no shell
     - inclui timeout de rede e resumo final de `PASS/FAIL`
@@ -161,14 +348,14 @@
     - `ensureIdempotency` trata ausencia da tabela `WebhookEvent` (`P2021`) com bypass temporario e log estruturado, evitando travamento/timeout em `/webhooks/*`
     - `ensureIdempotency` trata erro nao mapeado com resposta `500` controlada (sem `Unhandled Rejection`)
     - `/api/health` passa a marcar worker como `unknown` quando `WebhookEvent` nao existe (em vez de `offline`), evitando falso negativo sistemico
-    - `smoke-prod.sh` recebeu timeout de conexao/resposta para diagnostico deterministico em producao
+    - `scripts/smoke/smoke-prod.sh` recebeu timeout de conexao/resposta para diagnostico deterministico em producao
   - hotfix adicional de resiliencia em runtime:
     - `backend/src/app.ts` passa a importar `express-async-errors` para encaminhar erros async ao `errorHandler` e evitar requests penduradas/timeout
-    - `smoke-prod.sh` atualizado para considerar `202 Accepted` como sucesso no webhook `/webhooks/cte/autorizado`
+    - `scripts/smoke/smoke-prod.sh` atualizado para considerar `202 Accepted` como sucesso no webhook `/webhooks/cte/autorizado`
   - hardening de deploy em producao:
     - `backend/Dockerfile` passa a executar `prisma migrate deploy` no startup antes do seed e do servidor
     - evita subir backend com schema incompleto (caso atual: ausencia de `WebhookEvent` e `ctes`)
-    - `smoke-prod.sh` ajustado para payload de `/webhooks/cte/autorizado` com `id` numerico (alinhado ao schema atual)
+    - `scripts/smoke/smoke-prod.sh` ajustado para payload de `/webhooks/cte/autorizado` com `id` numerico (alinhado ao schema atual)
     - ajuste adicional no `backend/Dockerfile`: instala `prisma` no runtime (`npm install prisma --no-save`) apos `npm prune --omit=dev` para garantir disponibilidade do CLI no startup
   - hotfix frontend de conectividade em producao:
     - `frontend/src/app/page.tsx`, `frontend/src/app/worker/page.tsx` e `frontend/src/app/worker1/page.tsx` ajustados para ignorar `NEXT_PUBLIC_API_BASE_URL` quando apontar para `localhost/127.0.0.1` no browser do cliente
@@ -242,7 +429,7 @@
     - script `npm run seed:ctes-events` adicionado no `backend/package.json`
     - comportamento idempotente: remove e reinsere 8 registros em `WebhookEvent` com fontes CT-e (`/webhooks/cte/*` e `/api/CTe/InserirCte`)
   - guia rápido de teste de CT-e em produção criado na raiz:
-    - `GUIA-TESTE-WEBHOOK-CTE-PROD.md`
+    - `docs/guias/guia-teste-webhook-cte-prod.md`
     - inclui exemplos `curl` para `/api/CTe/InserirCte`, `/webhooks/cte/autorizado` e `/webhooks/cte/cancelado`
   - hardening do ambiente dev local aplicado:
     - `dev.sh` agora valida portas antes de subir (`3000`/`3001`) e mostra dono da porta quando ocupada
@@ -264,7 +451,7 @@
   - `worker/src/services/contasReceberBaixaSync.ts`
   - `worker/src/index.ts`
   - `backend/src/services/contasReceberBaixaService.ts`
-  - `smoke-contas-receber-baixa.sh`
+  - `scripts/smoke/smoke-contas-receber-baixa.sh`
   - `frontend/src/app/page.tsx`
   - `frontend/src/app/worker/page.tsx`
   - `frontend/src/app/worker1/page.tsx`
@@ -272,7 +459,7 @@
   - `backend/src/app.ts`
   - `backend/src/middleware/auth.ts`
   - `backend/src/routes/dashboard.ts`
-  - `smoke-prod.sh`
+  - `scripts/smoke/smoke-prod.sh`
   - `docs/migracao-db/fase-5-1-pessoa-primeiro-lote.md`
   - `docs/migracao-db/fase-5-2-cte-primeiro-lote.md`
   - `docs/migracao-db/fase-5-3-ciot-primeiro-lote.md`
@@ -302,6 +489,11 @@
   - `docker exec bmx-frontend node -e "fetch('http://backend:3000/health')..."` -> `status=200`
   - `docker exec -i global-postgres psql -U global -d global_integrador -c "SELECT login, role, is_active FROM admin_users;"` -> `admin@admin | ADMIN | t`
   - insercao teste `external_id=910001` recebida e persistida com `processed=false`
+  - `frontend`: cor de destaque oficial Global Cargo propagada em badges compartilhados via `#EE3124`, preservando cores semanticas de sucesso/pendente/falha
+  - `frontend`: `npx prettier --check frontend/src/components/ui/badge.tsx` OK
+  - `frontend`: badges de status e status de integracao suavizados com fundo leve e borda sutil em `status-info/success/warning/danger/neutral`
+  - `frontend`: ajuste fino adicional nos badges de tabela para reduzir peso visual de `warning/danger` e uniformizar `font-weight` em estados operacionais
+  - `frontend`: `npx prettier --check frontend/src/app/globals.css` OK
 
 ## Proximo checkpoint
 
@@ -310,7 +502,7 @@
   - consolidar evidencias funcionais do dominio CIOT no modo local seguro (API + worker + persistencia final)
   - documentar consulta de banco e logs para fechar ciclo de migracao do dominio CIOT
 - Criterio de aceite:
-  - smoke local de CIOT com sucesso para criar/atualizar/cancelar via `smoke-ciot.sh`
+  - smoke local de CIOT com sucesso para criar/atualizar/cancelar via `scripts/smoke/smoke-ciot.sh`
   - confirmacao em banco das tabelas de staging/final CIOT apos execucao do worker
   - logs sem erro critico de procedure/objeto SQL Server no modo seguro
   - sem regressao no `typecheck/lint` de backend e worker

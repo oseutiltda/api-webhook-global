@@ -142,14 +142,14 @@ interface ProductivityData {
 }
 
 const CORES_GRAFICOS = [
-  '#3B82F6', // Azul
-  '#10B981', // Verde
-  '#F59E0B', // Amarelo
-  '#EF4444', // Vermelho
-  '#8B5CF6', // Roxo
-  '#06B6D4', // Ciano
-  '#EC4899', // Rosa
-  '#FF6B35', // Laranja
+  '#1E2F5B',
+  '#3F5D97',
+  '#6D85B6',
+  '#EE3124',
+  '#A96A1A',
+  '#2F7A58',
+  '#B7C4D9',
+  '#667085',
 ];
 
 function getSourceLabel(source: string): string {
@@ -302,16 +302,19 @@ export default function Worker1Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/40 pb-12">
+    <div className="page-shell">
       <div className="mx-auto max-w-7xl space-y-6 px-4 pb-8 pt-10">
         {/* Cabeçalho */}
-        <div className="flex flex-col gap-4 rounded-3xl border bg-card/70 p-6 shadow-sm backdrop-blur lg:flex-row lg:items-center lg:justify-between">
+        <div className="page-header flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
+            <Badge variant="default" className="mb-3">
+              Analytics Global
+            </Badge>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-              Dashboard de Produtividade
+              Analytics operacional
             </h1>
             <p className="text-sm text-muted-foreground">
-              Análise detalhada de performance e produtividade do sistema
+              Análise detalhada de performance, produtividade e integração do sistema
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -319,7 +322,7 @@ export default function Worker1Dashboard() {
               value={timePeriod}
               onValueChange={(v) => setTimePeriod(v as 'diario' | 'semanal' | 'mensal')}
             >
-              <TabsList className="bg-muted/60">
+              <TabsList>
                 <TabsTrigger value="diario">
                   <Calendar className="h-4 w-4 mr-2" />
                   Diário
@@ -350,23 +353,27 @@ export default function Worker1Dashboard() {
           <Card className="border-muted">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Eventos</CardTitle>
-              <Database className="h-4 w-4 text-blue-500" />
+              <Database className="h-4 w-4 text-[var(--brand-accent)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-blue-600">
+              <div className="metric-brand text-3xl font-bold">
                 {loading ? '...' : summary.totalEvents.toLocaleString('pt-BR')}
               </div>
               <div className="flex items-center gap-2 mt-2">
                 {trend.direction === 'up' && (
                   <>
-                    <ArrowUpRight className="h-4 w-4 text-green-500" />
-                    <span className="text-xs text-green-600">+{trend.percentage.toFixed(1)}%</span>
+                    <ArrowUpRight className="h-4 w-4 text-[var(--brand-success)]" />
+                    <span className="text-xs text-[var(--brand-success)]">
+                      +{trend.percentage.toFixed(1)}%
+                    </span>
                   </>
                 )}
                 {trend.direction === 'down' && (
                   <>
-                    <ArrowDownRight className="h-4 w-4 text-red-500" />
-                    <span className="text-xs text-red-600">-{trend.percentage.toFixed(1)}%</span>
+                    <ArrowDownRight className="h-4 w-4 text-[var(--brand-danger)]" />
+                    <span className="text-xs text-[var(--brand-danger)]">
+                      -{trend.percentage.toFixed(1)}%
+                    </span>
                   </>
                 )}
                 {trend.direction === 'neutral' && (
@@ -379,10 +386,10 @@ export default function Worker1Dashboard() {
           <Card className="border-muted">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Taxa de Sucesso</CardTitle>
-              <Target className="h-4 w-4 text-emerald-500" />
+              <Target className="h-4 w-4 text-[var(--brand-success)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-emerald-600">
+              <div className="text-3xl font-bold text-[var(--brand-success)]">
                 {loading ? '...' : `${summary.successRate.toFixed(1)}%`}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -394,10 +401,10 @@ export default function Worker1Dashboard() {
           <Card className="border-muted">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Tempo Médio</CardTitle>
-              <Clock className="h-4 w-4 text-purple-500" />
+              <Clock className="h-4 w-4 text-[var(--brand-info)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-purple-600">
+              <div className="text-3xl font-bold text-[var(--brand-info)]">
                 {loading ? '...' : `${summary.avgProcessingTimeSeconds.toFixed(2)}s`}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -409,10 +416,10 @@ export default function Worker1Dashboard() {
           <Card className="border-muted">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Falhas</CardTitle>
-              <XCircle className="h-4 w-4 text-rose-500" />
+              <XCircle className="h-4 w-4 text-[var(--brand-danger)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-rose-600">
+              <div className="text-3xl font-bold text-[var(--brand-danger)]">
                 {loading ? '...' : summary.totalFailed.toLocaleString('pt-BR')}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -438,9 +445,9 @@ export default function Worker1Dashboard() {
           <CardContent>
             <ChartContainer
               config={{
-                processados: { label: 'Processados', color: '#10B981' },
-                falhas: { label: 'Falhas', color: '#EF4444' },
-                pendentes: { label: 'Pendentes', color: '#F59E0B' },
+                processados: { label: 'Processados', color: '#2F7A58' },
+                falhas: { label: 'Falhas', color: '#EE3124' },
+                pendentes: { label: 'Pendentes', color: '#A96A1A' },
               }}
               className="h-[400px]"
             >
@@ -450,12 +457,12 @@ export default function Worker1Dashboard() {
                 <YAxis className="text-xs" tick={{ fill: 'currentColor' }} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="processados" fill="#10B981" name="Processados" />
-                <Bar dataKey="falhas" fill="#EF4444" name="Falhas" />
+                <Bar dataKey="processados" fill="#2F7A58" name="Processados" />
+                <Bar dataKey="falhas" fill="#EE3124" name="Falhas" />
                 <Line
                   type="monotone"
                   dataKey="pendentes"
-                  stroke="#F59E0B"
+                  stroke="#A96A1A"
                   strokeWidth={2}
                   name="Pendentes"
                 />
@@ -478,15 +485,15 @@ export default function Worker1Dashboard() {
             <CardContent>
               <ChartContainer
                 config={{
-                  taxaSucesso: { label: 'Taxa de Sucesso (%)', color: '#3B82F6' },
+                  taxaSucesso: { label: 'Taxa de Sucesso (%)', color: '#1E2F5B' },
                 }}
                 className="h-[300px]"
               >
                 <AreaChart data={dadosTaxaSucesso}>
                   <defs>
                     <linearGradient id="colorTaxaSucesso" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#1E2F5B" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#1E2F5B" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -496,7 +503,7 @@ export default function Worker1Dashboard() {
                   <Area
                     type="monotone"
                     dataKey="taxaSucesso"
-                    stroke="#3B82F6"
+                    stroke="#1E2F5B"
                     fillOpacity={1}
                     fill="url(#colorTaxaSucesso)"
                   />
@@ -517,9 +524,9 @@ export default function Worker1Dashboard() {
             <CardContent>
               <ChartContainer
                 config={{
-                  ciot: { label: 'CIOT', color: '#3B82F6' },
-                  nfse: { label: 'NFSE', color: '#10B981' },
-                  cte: { label: 'CT-e', color: '#8B5CF6' },
+                  ciot: { label: 'CIOT', color: '#1E2F5B' },
+                  nfse: { label: 'NFSE', color: '#2F7A58' },
+                  cte: { label: 'CT-e', color: '#3F5D97' },
                 }}
                 className="h-[300px]"
               >
@@ -529,9 +536,9 @@ export default function Worker1Dashboard() {
                   <YAxis className="text-xs" tick={{ fill: 'currentColor' }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="ciot" stackId="a" fill="#3B82F6" name="CIOT" />
-                  <Bar dataKey="nfse" stackId="a" fill="#10B981" name="NFSE" />
-                  <Bar dataKey="cte" stackId="a" fill="#8B5CF6" name="CT-e" />
+                  <Bar dataKey="ciot" stackId="a" fill="#1E2F5B" name="CIOT" />
+                  <Bar dataKey="nfse" stackId="a" fill="#2F7A58" name="NFSE" />
+                  <Bar dataKey="cte" stackId="a" fill="#3F5D97" name="CT-e" />
                 </BarChart>
               </ChartContainer>
             </CardContent>
@@ -552,7 +559,7 @@ export default function Worker1Dashboard() {
             <CardContent>
               <ChartContainer
                 config={{
-                  tempoSegundos: { label: 'Tempo (s)', color: '#F59E0B' },
+                  tempoSegundos: { label: 'Tempo (s)', color: '#A96A1A' },
                 }}
                 className="h-[300px]"
               >
@@ -564,9 +571,9 @@ export default function Worker1Dashboard() {
                   <Line
                     type="monotone"
                     dataKey="tempoSegundos"
-                    stroke="#F59E0B"
+                    stroke="#A96A1A"
                     strokeWidth={3}
-                    dot={{ fill: '#F59E0B', r: 5 }}
+                    dot={{ fill: '#A96A1A', r: 5 }}
                   />
                 </LineChart>
               </ChartContainer>
@@ -585,20 +592,20 @@ export default function Worker1Dashboard() {
             <CardContent>
               <ChartContainer
                 config={{
-                  integrados: { label: 'Integrados', color: '#10B981' },
-                  falhasIntegracao: { label: 'Falhas', color: '#EF4444' },
+                  integrados: { label: 'Integrados', color: '#2F7A58' },
+                  falhasIntegracao: { label: 'Falhas', color: '#EE3124' },
                 }}
                 className="h-[300px]"
               >
                 <AreaChart data={dadosIntegracao}>
                   <defs>
                     <linearGradient id="colorIntegrados" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#2F7A58" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#2F7A58" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorFalhasIntegracao" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#EE3124" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#EE3124" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -609,14 +616,14 @@ export default function Worker1Dashboard() {
                   <Area
                     type="monotone"
                     dataKey="integrados"
-                    stroke="#10B981"
+                    stroke="#2F7A58"
                     fillOpacity={1}
                     fill="url(#colorIntegrados)"
                   />
                   <Area
                     type="monotone"
                     dataKey="falhasIntegracao"
-                    stroke="#EF4444"
+                    stroke="#EE3124"
                     fillOpacity={1}
                     fill="url(#colorFalhasIntegracao)"
                   />
@@ -736,9 +743,9 @@ export default function Worker1Dashboard() {
             <div className="grid gap-4 md:grid-cols-3">
               {productivity?.byPeriod && (
                 <>
-                  <div className="text-center p-4 rounded-lg bg-blue-50 dark:bg-blue-950">
+                  <div className="surface-brand text-center rounded-lg border p-4">
                     <p className="text-sm text-muted-foreground mb-2">CIOT Únicos</p>
-                    <p className="text-3xl font-bold text-blue-600">
+                    <p className="metric-brand text-3xl font-bold">
                       {productivity.byPeriod
                         .reduce((sum, p) => sum + p.ciot.unicos, 0)
                         .toLocaleString('pt-BR')}
@@ -750,9 +757,9 @@ export default function Worker1Dashboard() {
                       eventos totais
                     </p>
                   </div>
-                  <div className="text-center p-4 rounded-lg bg-green-50 dark:bg-green-950">
+                  <div className="surface-success text-center rounded-lg border p-4">
                     <p className="text-sm text-muted-foreground mb-2">NFSE Únicos</p>
-                    <p className="text-3xl font-bold text-green-600">
+                    <p className="text-3xl font-bold text-[var(--brand-success)]">
                       {productivity.byPeriod
                         .reduce((sum, p) => sum + p.nfse.unicos, 0)
                         .toLocaleString('pt-BR')}
@@ -764,9 +771,9 @@ export default function Worker1Dashboard() {
                       eventos totais
                     </p>
                   </div>
-                  <div className="text-center p-4 rounded-lg bg-purple-50 dark:bg-purple-950">
+                  <div className="surface-info text-center rounded-lg border p-4">
                     <p className="text-sm text-muted-foreground mb-2">CT-e Únicos</p>
-                    <p className="text-3xl font-bold text-purple-600">
+                    <p className="text-3xl font-bold text-[var(--brand-info)]">
                       {productivity.byPeriod
                         .reduce((sum, p) => sum + p.cte.unicos, 0)
                         .toLocaleString('pt-BR')}

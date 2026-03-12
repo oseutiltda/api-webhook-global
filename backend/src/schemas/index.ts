@@ -133,28 +133,30 @@ export const ciotParcelasSchema = z.object({
   vliss: z.number(),
   cdtributacao: z.string().nullable().optional(),
   vlcsl: z.number(),
-  parcelas: z.array(z.object({
-    ID: z.string(),
-    idparcela: z.string(),
-    nrciotsistema: z.string(),
-    nrciot: z.string(),
-    dstipo: z.string(),
-    dsstatus: z.string(),
-    cdfavorecido: z.string(),
-    cdcartafrete: z.string(),
-    cdevento: z.string(),
-    dtpagto: z.string(),
-    indesconto: z.number().nullable().optional(),
-    vlbasecalculo: z.number().nullable().optional(),
-    dtrecebimento: z.string().nullable().optional(),
-    vloriginal: z.number().nullable().optional(),
-    dtinclusao: z.string(),
-    hrinclusao: z.string(),
-    dsusuarioinc: z.string(),
-    dtreferenciacalculo: z.string(),
-    dsobservacao: z.string().nullable().optional(),
-    vlprovisionado: z.number().nullable().optional(),
-  })),
+  parcelas: z.array(
+    z.object({
+      ID: z.string(),
+      idparcela: z.string(),
+      nrciotsistema: z.string(),
+      nrciot: z.string(),
+      dstipo: z.string(),
+      dsstatus: z.string(),
+      cdfavorecido: z.string(),
+      cdcartafrete: z.string(),
+      cdevento: z.string(),
+      dtpagto: z.string(),
+      indesconto: z.number().nullable().optional(),
+      vlbasecalculo: z.number().nullable().optional(),
+      dtrecebimento: z.string().nullable().optional(),
+      vloriginal: z.number().nullable().optional(),
+      dtinclusao: z.string(),
+      hrinclusao: z.string(),
+      dsusuarioinc: z.string(),
+      dtreferenciacalculo: z.string(),
+      dsobservacao: z.string().nullable().optional(),
+      vlprovisionado: z.number().nullable().optional(),
+    }),
+  ),
   dadosFaturamento: z.object({
     ID: z.string(),
     cdempresa: z.string(),
@@ -176,38 +178,46 @@ export const faturaPagarCriarSchema = z.object({
     value: z.string(),
     installment_period: z.string().optional(),
     comments: z.string().optional(),
-    corporation: z.object({
-      id: z.number().optional(),
-      person_id: z.number().optional(),
-      nickname: z.string().optional(),
-      cnpj: z.string().optional(),
-    }).optional(),
-    receiver: z.object({
-      id: z.number().optional(),
-      cpf: z.string().optional(),
-      name: z.string().optional(),
-      type: z.string().optional(),
-    }).optional(),
-    accounting_planning_management: z.object({
-      id: z.number().optional(),
-      name: z.string().optional(),
-    }).optional(),
+    corporation: z
+      .object({
+        id: z.number().optional(),
+        person_id: z.number().optional(),
+        nickname: z.string().optional(),
+        cnpj: z.string().optional(),
+      })
+      .optional(),
+    receiver: z
+      .object({
+        id: z.number().optional(),
+        cpf: z.string().optional(),
+        name: z.string().optional(),
+        type: z.string().optional(),
+      })
+      .optional(),
+    accounting_planning_management: z
+      .object({
+        id: z.number().optional(),
+        name: z.string().optional(),
+      })
+      .optional(),
     cost_centers: z.object({ id: z.number().optional(), name: z.string().optional() }).optional(),
     installment_count: z.number().optional(),
-    installments: z.array(
-      z.object({
-        id: z.number(),
-        position: z.number(),
-        due_date: z.string(),
-        value: z.string(),
-        interest_value: z.string().optional(),
-        discount_value: z.string().optional(),
-        payment_method: z.string().optional(),
-        comments: z.string().optional(),
-      })
-    ).optional(),
+    installments: z
+      .array(
+        z.object({
+          id: z.number(),
+          position: z.number(),
+          due_date: z.string(),
+          value: z.string(),
+          interest_value: z.string().optional(),
+          discount_value: z.string().optional(),
+          payment_method: z.string().optional(),
+          comments: z.string().optional(),
+        }),
+      )
+      .optional(),
     invoice_items: z.array(z.any()).optional(),
-  })
+  }),
 });
 
 export const faturaPagarBaixarSchema = z.object({
@@ -242,50 +252,60 @@ export const faturaReceberCriarSchema = z.object({
     value: z.string(),
     installment_period: z.string().optional(),
     comments: z.string().optional(),
-    corporation: z.object({
-      id: z.number().optional(),
-      person_id: z.number().optional(),
-      nickname: z.string().optional(),
-      cnpj: z.string().optional(),
-    }).optional(),
-    customer: z.object({
-      id: z.number().optional(),
-      cnpj: z.string().optional(),
-      name: z.string().optional(),
-      type: z.string().optional(),
-    }).optional(),
-    accounting_planning_management: z.object({
-      id: z.number().optional(),
-      name: z.string().optional(),
-    }).optional(),
-    installment_count: z.number().optional(),
-    installments: z.array(
-      z.object({
-        id: z.number(),
-        position: z.number(),
-        due_date: z.string(),
-        value: z.string(),
-        interest_value: z.string().optional(),
-        discount_value: z.string().optional(),
-        payment_method: z.string().optional(),
-        comments: z.string().optional(),
+    corporation: z
+      .object({
+        id: z.number().optional(),
+        person_id: z.number().optional(),
+        nickname: z.string().optional(),
+        cnpj: z.string().optional(),
       })
-    ).optional(),
-    invoice_items: z.array(
-      z.object({
-        id: z.number(),
-        cte_key: z.string().optional(),
-        cte_number: z.string().optional(),
-        cte_series: z.string().optional(),
-        payer_name: z.string().optional(),
-        draft_number: z.string().optional(),
-        nfse_number: z.string().optional(),
-        nfse_series: z.string().optional(),
-        total: z.string().optional(),
+      .optional(),
+    customer: z
+      .object({
+        id: z.number().optional(),
+        cnpj: z.string().optional(),
+        name: z.string().optional(),
         type: z.string().optional(),
       })
-    ).optional(),
-  })
+      .optional(),
+    accounting_planning_management: z
+      .object({
+        id: z.number().optional(),
+        name: z.string().optional(),
+      })
+      .optional(),
+    installment_count: z.number().optional(),
+    installments: z
+      .array(
+        z.object({
+          id: z.number(),
+          position: z.number(),
+          due_date: z.string(),
+          value: z.string(),
+          interest_value: z.string().optional(),
+          discount_value: z.string().optional(),
+          payment_method: z.string().optional(),
+          comments: z.string().optional(),
+        }),
+      )
+      .optional(),
+    invoice_items: z
+      .array(
+        z.object({
+          id: z.number(),
+          cte_key: z.string().optional(),
+          cte_number: z.string().optional(),
+          cte_series: z.string().optional(),
+          payer_name: z.string().optional(),
+          draft_number: z.string().optional(),
+          nfse_number: z.string().optional(),
+          nfse_series: z.string().optional(),
+          total: z.string().optional(),
+          type: z.string().optional(),
+        }),
+      )
+      .optional(),
+  }),
 });
 
 export const faturaReceberBaixarSchema = z.object({
@@ -371,37 +391,39 @@ export const nfseAutorizadoSchema = z.object({
     }),
     orgaoGerador: z.object({ codigoMunicipio: z.number(), uf: z.string() }),
   }),
-  dadosLogisticaFrete: z.object({
-    pesoreal: z.number().optional(),
-    pesocubado: z.number().optional(),
-    quantidadevolumes: z.number().optional(),
-    valorproduto: z.number().optional(),
-    valornota: z.number().optional(),
-    valorfretepeso: z.number().optional(),
-    valoradv: z.number().optional(),
-    valoroutros: z.number().optional(),
-    comentariofrete: z.string().optional(),
-    usuarioalteracao: z.string().optional(),
-    datadealteracao: z.string().optional(),
-    datacancelamento: z.string().nullable().optional(),
-    motivocancelamento: z.string().optional(),
-    filialcancelamento: z.string().optional(),
-    cnpjConsignatario: z.string().optional(),
-    cnpjRedespacho: z.string().optional(),
-    cnpjexpedidor: z.string().optional(),
-    valorbasecalculopis: z.number().optional(),
-    aliqpis: z.number().optional(),
-    valorpis: z.number().optional(),
-    aliqcofins: z.number().optional(),
-    valorcofins: z.number().optional(),
-    dataPrazo: z.string().optional(),
-    diasentrega: z.number().optional(),
-    cnpjRemetente: z.string().optional(),
-    cepRemetente: z.string().optional(),
-    cnpjDestinatario: z.string().optional(),
-    cepDestinatario: z.string().optional(),
-    logradouroDestinatario: z.string().optional(),
-  }).optional(),
+  dadosLogisticaFrete: z
+    .object({
+      pesoreal: z.number().optional(),
+      pesocubado: z.number().optional(),
+      quantidadevolumes: z.number().optional(),
+      valorproduto: z.number().optional(),
+      valornota: z.number().optional(),
+      valorfretepeso: z.number().optional(),
+      valoradv: z.number().optional(),
+      valoroutros: z.number().optional(),
+      comentariofrete: z.string().optional(),
+      usuarioalteracao: z.string().optional(),
+      datadealteracao: z.string().optional(),
+      datacancelamento: z.string().nullable().optional(),
+      motivocancelamento: z.string().optional(),
+      filialcancelamento: z.string().optional(),
+      cnpjConsignatario: z.string().optional(),
+      cnpjRedespacho: z.string().optional(),
+      cnpjexpedidor: z.string().optional(),
+      valorbasecalculopis: z.number().optional(),
+      aliqpis: z.number().optional(),
+      valorpis: z.number().optional(),
+      aliqcofins: z.number().optional(),
+      valorcofins: z.number().optional(),
+      dataPrazo: z.string().optional(),
+      diasentrega: z.number().optional(),
+      cnpjRemetente: z.string().optional(),
+      cepRemetente: z.string().optional(),
+      cnpjDestinatario: z.string().optional(),
+      cepDestinatario: z.string().optional(),
+      logradouroDestinatario: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const pessoaSchema = z.object({
@@ -412,23 +434,25 @@ export const pessoaSchema = z.object({
     lstTipoPessoas: z.array(z.string()).optional(),
   }),
   contatoList: z.array(z.any()).optional(),
-  enderecoList: z.array(
-    z.object({
-      tipoEndereco: z.object({
-        codTipoEndereco: z.number(),
-        descricao: z.string(),
-        lstTipoEnderecos: z.array(z.string()).optional(),
+  enderecoList: z
+    .array(
+      z.object({
+        tipoEndereco: z.object({
+          codTipoEndereco: z.number(),
+          descricao: z.string(),
+          lstTipoEnderecos: z.array(z.string()).optional(),
+        }),
+        cep: z.string().nullable().optional(),
+        logradouro: z.string().nullable().optional(),
+        numero: z.string().nullable().optional(),
+        complemento: z.string().nullable().optional(),
+        bairro: z.string().nullable().optional(),
+        cidade: z.string().nullable().optional(),
+        estado: z.string().nullable().optional(),
+        lstEnderecos: z.array(z.string()).optional(),
       }),
-      cep: z.string().nullable().optional(),
-      logradouro: z.string().nullable().optional(),
-      numero: z.string().nullable().optional(),
-      complemento: z.string().nullable().optional(),
-      bairro: z.string().nullable().optional(),
-      cidade: z.string().nullable().optional(),
-      estado: z.string().nullable().optional(),
-      lstEnderecos: z.array(z.string()).optional(),
-    })
-  ).optional(),
+    )
+    .optional(),
   dadosBancarioList: z.array(z.any()).optional(),
   chavesPixList: z.array(z.any()).optional(),
   pessoaPersonagemList: z.array(z.any()).optional(),
@@ -511,5 +535,3 @@ export type FaturaReceberCriar = z.infer<typeof faturaReceberCriarSchema>;
 export type FaturaReceberBaixar = z.infer<typeof faturaReceberBaixarSchema>;
 export type NfseAutorizado = z.infer<typeof nfseAutorizadoSchema>;
 export type Pessoa = z.infer<typeof pessoaSchema>;
-
-

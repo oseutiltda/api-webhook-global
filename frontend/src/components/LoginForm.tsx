@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, Lock, Eye, EyeOff, Loader2, Package } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
-import Link from 'next/link';
+import coverImage from '../../public/capa.jpg';
 
 // Credenciais configuradas via variáveis de ambiente (.env)
 // Estas variáveis DEVEM ser definidas em tempo de build:
@@ -71,6 +71,7 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCoverLoaded, setIsCoverLoaded] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -130,117 +131,130 @@ export function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col lg:flex-row">
-      {/* Lado Esquerdo - Imagem de Capa (60%) - Responsivo */}
-      <div className="w-full lg:w-7/12 relative bg-gradient-to-br from-yellow-50 to-white flex items-center justify-center min-h-screen overflow-hidden">
-        {/* Imagem de capa ocupando toda a área sem cortar */}
-        <div className="absolute inset-0 w-full h-full flex items-center justify-center p-4">
+    <div className="min-h-screen bg-white text-[var(--brand-primary)] flex flex-col lg:flex-row">
+      <section className="relative min-h-screen w-full overflow-hidden bg-[#f7f9fc] lg:w-7/12">
+        <div
+          className={`absolute inset-0 bg-[linear-gradient(180deg,#eef3f9_0%,#f7f9fc_48%,#edf2f8_100%)] transition-opacity duration-500 ${
+            isCoverLoaded ? 'opacity-0' : 'opacity-100'
+          }`}
+        />
+        <div className="absolute inset-0 flex h-full w-full items-center justify-center p-4">
           <Image
-            src="/capa.png"
-            alt="Capa BMX Serviços - Logística e Transporte"
+            src={coverImage}
+            alt="Capa Global Cargo - Logistica e Transporte"
             fill
-            className="object-contain"
+            className={`object-contain transition-opacity duration-700 ${isCoverLoaded ? 'opacity-100' : 'opacity-0'}`}
             sizes="(max-width: 1024px) 100vw, 60vw"
-            priority
-            unoptimized
-            onError={(e) => {
+            quality={100}
+            fetchPriority="high"
+            onLoad={() => setIsCoverLoaded(true)}
+            onError={() => {
+              setIsCoverLoaded(true);
               console.error(
-                'Erro ao carregar imagem capa.png. Verifique se o arquivo existe em frontend/public/capa.png',
+                'Erro ao carregar imagem capa.jpg. Verifique se o arquivo existe em frontend/public/capa.jpg',
               );
             }}
           />
         </div>
-        <div className="hidden lg:block absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white via-white/70 to-transparent pointer-events-none" />
-      </div>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0)_34%,rgba(33,58,102,0.045)_100%),linear-gradient(90deg,rgba(24,45,86,0.065)_0%,rgba(255,255,255,0)_16%,rgba(255,255,255,0)_84%,rgba(24,45,86,0.065)_100%)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-32 bg-gradient-to-b from-[#e7edf6] via-[#f7f9fc]/84 to-transparent lg:block" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-32 bg-gradient-to-t from-[#e7edf6] via-[#f7f9fc]/84 to-transparent lg:block" />
+      </section>
 
-      {/* Lado Direito - Formulário (40%) */}
-      <div className="flex-1 lg:w-5/12 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12 relative min-h-screen lg:min-h-0">
-        <div className="w-full max-w-md">
-          {/* Login Card */}
-          <Card className="bg-white/95 backdrop-blur-sm shadow-xl border-0">
-            <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-2xl font-bold text-center" style={{ color: '#e9c440' }}>
-                Bem-vindo de volta
-              </CardTitle>
-              <CardDescription className="text-center" style={{ color: '#e9c440' }}>
-                Faça login para acessar sua conta
-              </CardDescription>
+      <section className="relative flex min-h-screen flex-1 items-center justify-center overflow-hidden bg-[#f5f3ee] px-6 py-10 sm:px-8 lg:w-5/12 lg:px-12">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(29,47,95,0.08),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(228,68,50,0.035),_transparent_24%),linear-gradient(180deg,_rgba(255,255,255,0.78),_rgba(242,240,235,0.96))]" />
+        <div className="absolute inset-y-0 left-0 hidden w-px bg-[linear-gradient(180deg,rgba(29,47,95,0),rgba(29,47,95,0.12),rgba(29,47,95,0))] lg:block" />
+        <div className="absolute right-10 top-16 hidden h-48 w-48 rounded-full bg-[var(--brand-accent)]/8 blur-3xl lg:block" />
+        <div className="relative z-10 w-full max-w-[28rem] lg:-translate-y-3">
+          <div className="mb-5 flex items-center gap-3 text-[var(--brand-muted)]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#d7dce5] bg-white shadow-[0_12px_30px_rgba(16,35,63,0.05)]">
+              <ArrowRight className="h-5 w-5 text-[var(--brand-accent)]" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7b879b]">
+                Autenticacao
+              </p>
+              <p className="text-sm text-[var(--brand-muted)]">
+                Acesso restrito ao ambiente operacional
+              </p>
+            </div>
+          </div>
+
+          <Card className="overflow-hidden rounded-[32px] border border-[#d7dce5] bg-[#fcfbf8]/98 py-0 shadow-[0_22px_72px_rgba(16,35,63,0.075)] ring-1 ring-white/60 backdrop-blur-sm">
+            <div className="h-1.5 w-full bg-[linear-gradient(90deg,#1d2f5f_0%,#1d2f5f_72%,#ee3124_72%,#ee3124_100%)]" />
+            <CardHeader className="space-y-3 px-7 pb-0 pt-7">
+              <div className="space-y-2">
+                <CardTitle className="text-3xl font-semibold tracking-[-0.04em] text-[var(--brand-primary)]">
+                  Bem-vindo de volta
+                </CardTitle>
+                <CardDescription className="max-w-sm text-sm leading-6 text-[var(--brand-muted)]">
+                  Faça login para acessar sua conta.
+                </CardDescription>
+              </div>
             </CardHeader>
 
-            <CardContent className="space-y-4">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Email Field */}
+            <CardContent className="space-y-5 px-7 pb-7 pt-6">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
                   <label
                     htmlFor="login"
-                    className="text-sm font-medium block"
-                    style={{ color: '#e9c440' }}
+                    className="block text-sm font-medium tracking-[-0.01em] text-[#22385b]"
                   >
-                    Usuário ou Email
+                    Usuario ou e-mail
                   </label>
                   <div className="relative">
-                    <Mail
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5"
-                      style={{ color: '#e9c440' }}
-                    />
+                    <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#70809a]" />
                     <Input
                       id="login"
                       type="text"
-                      placeholder="admin@admin ou admin2@admin"
+                      autoComplete="username"
+                      placeholder="seu.usuario@globalcargo.com.br"
                       value={login}
                       onChange={(e) => setLogin(e.target.value)}
-                      className="bg-white border-gray-300 rounded-lg px-4 py-3 pl-10 transition-all duration-200 placeholder:text-gray-500 focus:border-[#e9c440] focus:ring-[#e9c440]"
+                      className="h-[52px] rounded-2xl border-[#d7dce5] bg-[#fffefd] px-4 py-3 pl-11 text-[15px] text-[var(--brand-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] placeholder:text-[#8d97a7] transition-colors focus-visible:border-[var(--brand-primary)] focus-visible:ring-[var(--brand-primary)]/12"
                       required
                     />
                   </div>
                 </div>
 
-                {/* Password Field */}
                 <div className="space-y-2">
                   <label
                     htmlFor="password"
-                    className="text-sm font-medium block"
-                    style={{ color: '#e9c440' }}
+                    className="block text-sm font-medium tracking-[-0.01em] text-[#22385b]"
                   >
                     Senha
                   </label>
                   <div className="relative">
-                    <Lock
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5"
-                      style={{ color: '#e9c440' }}
-                    />
+                    <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#70809a]" />
                     <Input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
                       placeholder="Digite sua senha"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="bg-white border-gray-300 rounded-lg px-4 py-3 pl-10 pr-10 transition-all duration-200 placeholder:text-gray-500 focus:border-[#e9c440] focus:ring-[#e9c440]"
+                      className="h-[52px] rounded-2xl border-[#d7dce5] bg-[#fffefd] px-4 py-3 pl-11 pr-11 text-[15px] text-[var(--brand-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] placeholder:text-[#8d97a7] transition-colors focus-visible:border-[var(--brand-primary)] focus-visible:ring-[var(--brand-primary)]/12"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:opacity-70 transition-opacity"
-                      style={{ color: '#6B7280' }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6b778b] transition-opacity hover:opacity-70"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Error Alert */}
                 {error && (
-                  <div className="border border-red-200 bg-red-50 rounded-lg p-3">
-                    <p className="text-sm text-red-600">{error}</p>
+                  <div className="rounded-2xl border border-[#f2c4bf] bg-[#fff2f0] p-3">
+                    <p className="text-sm text-[#a3392a]">{error}</p>
                   </div>
                 )}
 
-                {/* Login Button */}
                 <Button
                   type="submit"
-                  className="w-full h-12 text-base font-medium text-white transition-colors hover:opacity-90"
-                  style={{ backgroundColor: '#e9c440' }}
+                  className="h-[52px] w-full rounded-2xl bg-[var(--brand-accent)] text-base font-semibold tracking-[-0.01em] text-white shadow-[0_10px_24px_rgba(238,49,36,0.18)] transition-opacity hover:bg-[var(--brand-accent)]/95 focus-visible:ring-[var(--brand-accent)]/25"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -256,7 +270,7 @@ export function LoginForm() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

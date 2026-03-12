@@ -32,7 +32,7 @@ export async function inserirContasReceberController(req: Request, res: Response
   try {
     // Normalizar payload (aceitar tanto camelCase quanto snake_case)
     const normalizedBody = normalizeContasReceberPayload(req.body);
-    
+
     logger.debug(
       {
         hasInstallmentCount: !!normalizedBody.installment_count,
@@ -41,7 +41,7 @@ export async function inserirContasReceberController(req: Request, res: Response
         hasInstallments: !!normalizedBody.data?.installments,
         hasInvoiceItems: !!normalizedBody.data?.invoice_items,
       },
-      'Payload normalizado para ContasReceber'
+      'Payload normalizado para ContasReceber',
     );
 
     // Validar payload com Zod
@@ -55,14 +55,14 @@ export async function inserirContasReceberController(req: Request, res: Response
     await createOrUpdateWebhookEvent(
       webhookEventId,
       '/api/ContasReceber/InserirContasReceber',
-      'pending'
+      'pending',
     );
 
     // Atualizar status para processing
     await createOrUpdateWebhookEvent(
       webhookEventId,
       '/api/ContasReceber/InserirContasReceber',
-      'processing'
+      'processing',
     );
 
     // Chamar service para inserir (o service já atualiza o WebhookEvent com detalhes das tabelas)
@@ -80,7 +80,7 @@ export async function inserirContasReceberController(req: Request, res: Response
           document: contasReceber.data.document,
           processingTimeMs: processingTime,
         },
-        resultado.mensagem
+        resultado.mensagem,
       );
 
       return res.status(202).json({
@@ -96,7 +96,7 @@ export async function inserirContasReceberController(req: Request, res: Response
           error: resultado.mensagem,
           processingTimeMs: processingTime,
         },
-        'Falha ao inserir conta a receber'
+        'Falha ao inserir conta a receber',
       );
 
       return res.status(400).json({
@@ -113,7 +113,7 @@ export async function inserirContasReceberController(req: Request, res: Response
       const errors = error.errors || error.issues || [];
       const errorMessages = errors
         .map((e: any) => {
-          const path = Array.isArray(e.path) ? e.path.join('.') : (e.path || 'unknown');
+          const path = Array.isArray(e.path) ? e.path.join('.') : e.path || 'unknown';
           return `${path}: ${e.message || 'Erro de validação'}`;
         })
         .join(', ');
@@ -127,7 +127,7 @@ export async function inserirContasReceberController(req: Request, res: Response
           {
             integrationStatus: 'failed',
             processingTimeMs: processingTime,
-          }
+          },
         );
       }
 
@@ -137,7 +137,7 @@ export async function inserirContasReceberController(req: Request, res: Response
           error: errorMessages,
           processingTimeMs: processingTime,
         },
-        'Erro de validação ao inserir conta a receber'
+        'Erro de validação ao inserir conta a receber',
       );
 
       return res.status(400).json({
@@ -157,7 +157,7 @@ export async function inserirContasReceberController(req: Request, res: Response
         {
           integrationStatus: 'failed',
           processingTimeMs: processingTime,
-        }
+        },
       );
     }
 
@@ -168,7 +168,7 @@ export async function inserirContasReceberController(req: Request, res: Response
         stack: error.stack,
         processingTimeMs: processingTime,
       },
-      'Erro inesperado ao inserir conta a receber'
+      'Erro inesperado ao inserir conta a receber',
     );
 
     return res.status(500).json({
@@ -221,9 +221,12 @@ function normalizeContasReceberData(data: any): any {
   if (data.value !== undefined && data.value !== null && data.value !== '') {
     normalized.value = typeof data.value === 'string' ? Number(data.value) : data.value;
   }
-  if (data.installment_period !== undefined) normalized.installment_period = data.installment_period;
+  if (data.installment_period !== undefined)
+    normalized.installment_period = data.installment_period;
   if (data.comments !== undefined) normalized.comments = data.comments;
-  if (data.cancelado !== undefined) normalized.cancelado = typeof data.cancelado === 'string' ? Number(data.cancelado) : data.cancelado;
+  if (data.cancelado !== undefined)
+    normalized.cancelado =
+      typeof data.cancelado === 'string' ? Number(data.cancelado) : data.cancelado;
   if (data.Obscancelado !== undefined) normalized.Obscancelado = data.Obscancelado;
   if (data.DsUsuarioCan !== undefined) normalized.DsUsuarioCan = data.DsUsuarioCan;
 
@@ -272,25 +275,28 @@ function normalizeContasReceberData(data: any): any {
         comments: inst.comments,
         payment_date: inst.payment_date ?? inst.paymentDate,
       };
-      
+
       if (inst.position !== undefined && inst.position !== null) {
-        normalizedInst.position = typeof inst.position === 'string' ? Number(inst.position) : inst.position;
+        normalizedInst.position =
+          typeof inst.position === 'string' ? Number(inst.position) : inst.position;
       }
-      
+
       if (inst.value !== undefined && inst.value !== null && inst.value !== '') {
         normalizedInst.value = typeof inst.value === 'string' ? Number(inst.value) : inst.value;
       }
-      
+
       const interestValue = inst.interest_value ?? inst.interestValue;
       if (interestValue !== undefined && interestValue !== null && interestValue !== '') {
-        normalizedInst.interest_value = typeof interestValue === 'string' ? Number(interestValue) : interestValue;
+        normalizedInst.interest_value =
+          typeof interestValue === 'string' ? Number(interestValue) : interestValue;
       }
-      
+
       const discountValue = inst.discount_value ?? inst.discountValue;
       if (discountValue !== undefined && discountValue !== null && discountValue !== '') {
-        normalizedInst.discount_value = typeof discountValue === 'string' ? Number(discountValue) : discountValue;
+        normalizedInst.discount_value =
+          typeof discountValue === 'string' ? Number(discountValue) : discountValue;
       }
-      
+
       return normalizedInst;
     });
   }
@@ -309,24 +315,24 @@ function normalizeContasReceberData(data: any): any {
           nfse_series: item.nfse_series ?? item.nfseSeries,
           type: item.type,
         };
-        
+
         // Converter cte_number apenas se não for string vazia
         const cteNumber = item.cte_number ?? item.cteNumber;
         if (cteNumber !== undefined && cteNumber !== null && cteNumber !== '') {
           normalizedItem.cte_number = typeof cteNumber === 'string' ? Number(cteNumber) : cteNumber;
         }
-        
+
         // Converter cte_series apenas se não for string vazia
         const cteSeries = item.cte_series ?? item.cteSeries;
         if (cteSeries !== undefined && cteSeries !== null && cteSeries !== '') {
           normalizedItem.cte_series = typeof cteSeries === 'string' ? Number(cteSeries) : cteSeries;
         }
-        
+
         // Converter total
         if (item.total !== undefined && item.total !== null && item.total !== '') {
           normalizedItem.total = typeof item.total === 'string' ? Number(item.total) : item.total;
         }
-        
+
         return normalizedItem;
       });
     }
@@ -334,4 +340,3 @@ function normalizeContasReceberData(data: any): any {
 
   return normalized;
 }
-

@@ -33,20 +33,18 @@ export const cteSchema = z.object({
 // Aceita tanto formato aninhado { cte: {...} } quanto formato direto { id, authorization_number, ... }
 export const inserirCteSchema = z.union([
   // Formato aninhado: { cte: {...} } ou { Cte: {...} }
-  z.object({
-    cte: cteSchema.optional(),
-    Cte: cteSchema.optional(),
-  }).refine(
-    (data) => data.cte || data.Cte,
-    {
+  z
+    .object({
+      cte: cteSchema.optional(),
+      Cte: cteSchema.optional(),
+    })
+    .refine((data) => data.cte || data.Cte, {
       message: 'CT-e deve ser fornecido (campo "cte" ou "Cte")',
       path: ['cte'],
-    }
-  ),
+    }),
   // Formato direto: { id, authorization_number, status, xml, event_xml }
   cteSchema,
 ]);
 
 export type Cte = z.infer<typeof cteSchema>;
 export type InserirCte = z.infer<typeof inserirCteSchema>;
-

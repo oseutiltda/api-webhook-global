@@ -42,51 +42,60 @@ export async function inserirContasReceberBaixaController(req: Request, res: Res
     await createOrUpdateWebhookEvent(
       webhookEventId,
       '/api/ContasReceber/InserirContasReceberBaixa',
-      'pending'
+      'pending',
     );
 
     // Atualizar status para processing
     await createOrUpdateWebhookEvent(
       webhookEventId,
       '/api/ContasReceber/InserirContasReceberBaixa',
-      'processing'
+      'processing',
     );
 
     // Chamar service para inserir
     // Alterado para assíncrono para evitar timeout do cliente
-    inserirContasReceberBaixa(baixa).then(resultado => {
-      const processingTime = Date.now() - startTime;
-      if (resultado.status) {
-        createOrUpdateWebhookEvent(
-          webhookEventId!,
-          '/api/ContasReceber/InserirContasReceberBaixa',
-          'processed',
-          null,
-          {
-            integrationStatus: 'integrated',
-            processingTimeMs: processingTime,
-            installment_id: baixa.installment_id,
-            payment_date: baixa.payment_date,
-            payment_value: baixa.payment_value,
-          }
-        ).catch(e => logger.error({ error: e.message }, 'Erro ao atualizar WebhookEvent sucesso (baixa)'));
-      } else {
-        createOrUpdateWebhookEvent(
-          webhookEventId!,
-          '/api/ContasReceber/InserirContasReceberBaixa',
-          'failed',
-          resultado.mensagem,
-          {
-            integrationStatus: 'failed',
-            processingTimeMs: processingTime,
-            installment_id: baixa.installment_id,
-            error: resultado.mensagem,
-          }
-        ).catch(e => logger.error({ error: e.message }, 'Erro ao atualizar WebhookEvent falha (baixa)'));
-      }
-    }).catch(err => {
-      logger.error({ eventId: webhookEventId, error: err.message }, 'Erro no processamento em segundo plano de baixa de conta a receber');
-    });
+    inserirContasReceberBaixa(baixa)
+      .then((resultado) => {
+        const processingTime = Date.now() - startTime;
+        if (resultado.status) {
+          createOrUpdateWebhookEvent(
+            webhookEventId!,
+            '/api/ContasReceber/InserirContasReceberBaixa',
+            'processed',
+            null,
+            {
+              integrationStatus: 'integrated',
+              processingTimeMs: processingTime,
+              installment_id: baixa.installment_id,
+              payment_date: baixa.payment_date,
+              payment_value: baixa.payment_value,
+            },
+          ).catch((e) =>
+            logger.error({ error: e.message }, 'Erro ao atualizar WebhookEvent sucesso (baixa)'),
+          );
+        } else {
+          createOrUpdateWebhookEvent(
+            webhookEventId!,
+            '/api/ContasReceber/InserirContasReceberBaixa',
+            'failed',
+            resultado.mensagem,
+            {
+              integrationStatus: 'failed',
+              processingTimeMs: processingTime,
+              installment_id: baixa.installment_id,
+              error: resultado.mensagem,
+            },
+          ).catch((e) =>
+            logger.error({ error: e.message }, 'Erro ao atualizar WebhookEvent falha (baixa)'),
+          );
+        }
+      })
+      .catch((err) => {
+        logger.error(
+          { eventId: webhookEventId, error: err.message },
+          'Erro no processamento em segundo plano de baixa de conta a receber',
+        );
+      });
 
     const processingTime = Date.now() - startTime;
 
@@ -96,7 +105,7 @@ export async function inserirContasReceberBaixaController(req: Request, res: Res
         installment_id: baixa.installment_id,
         processingTimeMs: processingTime,
       },
-      'Processamento de baixa de conta a receber iniciado (assíncrono)'
+      'Processamento de baixa de conta a receber iniciado (assíncrono)',
     );
 
     return res.status(202).json({
@@ -109,9 +118,7 @@ export async function inserirContasReceberBaixaController(req: Request, res: Res
 
     // Se for erro de validação Zod
     if (error instanceof z.ZodError) {
-      const errorMessages = error.issues
-        .map((e) => `${e.path.join('.')}: ${e.message}`)
-        .join(', ');
+      const errorMessages = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
 
       if (webhookEventId) {
         await createOrUpdateWebhookEvent(
@@ -122,7 +129,7 @@ export async function inserirContasReceberBaixaController(req: Request, res: Res
           {
             integrationStatus: 'failed',
             processingTimeMs: processingTime,
-          }
+          },
         );
       }
 
@@ -132,7 +139,7 @@ export async function inserirContasReceberBaixaController(req: Request, res: Res
           error: errorMessages,
           processingTimeMs: processingTime,
         },
-        'Erro de validação ao inserir baixa de conta a receber'
+        'Erro de validação ao inserir baixa de conta a receber',
       );
 
       return res.status(400).json({
@@ -152,7 +159,7 @@ export async function inserirContasReceberBaixaController(req: Request, res: Res
         {
           integrationStatus: 'failed',
           processingTimeMs: processingTime,
-        }
+        },
       );
     }
 
@@ -163,7 +170,7 @@ export async function inserirContasReceberBaixaController(req: Request, res: Res
         stack: error.stack,
         processingTimeMs: processingTime,
       },
-      'Erro inesperado ao inserir baixa de conta a receber'
+      'Erro inesperado ao inserir baixa de conta a receber',
     );
 
     return res.status(500).json({
@@ -227,4 +234,3 @@ function normalizeContasReceberBaixaPayload(body: any): any {
 
   return normalized;
 }
-

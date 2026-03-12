@@ -122,15 +122,15 @@ type Status =
   | 'retrying';
 
 const statusStyles: Record<Status, string> = {
-  accepted: 'border-emerald-200 bg-emerald-500/10 text-emerald-600',
-  queued: 'border-blue-200 bg-blue-500/10 text-blue-600',
-  pending: 'border-blue-200 bg-blue-500/10 text-blue-600',
-  processing: 'border-sky-200 bg-sky-500/10 text-sky-600',
-  processed: 'border-emerald-200 bg-emerald-500/10 text-emerald-600',
-  duplicate: 'border-purple-200 bg-purple-500/10 text-purple-600',
-  error: 'border-rose-200 bg-rose-500/10 text-rose-600',
-  failed: 'border-rose-200 bg-rose-500/10 text-rose-600',
-  retrying: 'border-amber-200 bg-amber-500/10 text-amber-600',
+  accepted: 'status-success',
+  queued: 'status-info',
+  pending: 'status-info',
+  processing: 'status-info',
+  processed: 'status-success',
+  duplicate: 'status-neutral',
+  error: 'status-danger',
+  failed: 'status-danger',
+  retrying: 'status-warning',
 };
 
 interface WorkerStats {
@@ -205,14 +205,14 @@ interface HealthStatus {
 }
 
 const CORES_GRAFICOS = [
-  '#10B981', // Verde
-  '#3B82F6', // Azul
-  '#F59E0B', // Amarelo
-  '#EF4444', // Vermelho
-  '#8B5CF6', // Roxo
-  '#06B6D4', // Ciano
-  '#EC4899', // Rosa
-  '#FF6B35', // Laranja
+  '#1E2F5B',
+  '#3F5D97',
+  '#6D85B6',
+  '#EE3124',
+  '#A96A1A',
+  '#2F7A58',
+  '#B7C4D9',
+  '#667085',
 ];
 
 function StatusBadge({ status }: { status: Status | string | null }) {
@@ -240,11 +240,11 @@ function IntegrationStatusBadge({ status }: { status: string | null | undefined 
   const statusMap: Record<string, { label: string; className: string }> = {
     integrated: {
       label: 'Integrado',
-      className: 'border-emerald-200 bg-emerald-500/10 text-emerald-600',
+      className: 'status-success',
     },
-    pending: { label: 'Pendente', className: 'border-amber-200 bg-amber-500/10 text-amber-600' },
-    failed: { label: 'Falhou', className: 'border-rose-200 bg-rose-500/10 text-rose-600' },
-    skipped: { label: 'Ignorado', className: 'border-gray-200 bg-gray-500/10 text-gray-600' },
+    pending: { label: 'Pendente', className: 'status-warning' },
+    failed: { label: 'Falhou', className: 'status-danger' },
+    skipped: { label: 'Ignorado', className: 'status-neutral' },
   };
 
   const config = statusMap[status || 'pending'] || statusMap.pending;
@@ -637,11 +637,14 @@ export default function Home() {
   const successRate = stats ? stats.successRate.toFixed(1) : '0.0';
 
   return (
-    <div className="min-h-screen bg-muted/40 pb-12">
+    <div className="page-shell">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-8 pt-10 lg:px-0">
-        <header className="flex flex-col gap-4 rounded-3xl border bg-card/70 p-6 shadow-sm backdrop-blur lg:flex-row lg:items-center lg:justify-between">
+        <header className="page-header flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2 mb-2">
+              <Badge variant="default" className="text-xs">
+                Operação Global
+              </Badge>
               <p className="text-sm font-medium text-muted-foreground">
                 Última sincronização: {lastSync.toLocaleTimeString('pt-BR')}
               </p>
@@ -651,10 +654,10 @@ export default function Home() {
               </Badge>
             </div>
             <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-              Dashboard de Integrações ESL/Senior
+              Global Integrador
             </h1>
             <p className="text-sm text-muted-foreground">
-              Monitoramento em tempo real de webhooks, integrações e alertas de reprocessamento.
+              Monitoramento em tempo real de webhooks, integrações e alertas operacionais.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -694,8 +697,8 @@ export default function Home() {
               className={cn(
                 'border-muted',
                 health.services?.backend?.status === 'online'
-                  ? 'border-emerald-200 bg-emerald-50/30'
-                  : 'border-rose-200 bg-rose-50/30',
+                  ? 'surface-success'
+                  : 'surface-danger',
               )}
             >
               <CardHeader className="pb-3">
@@ -705,8 +708,8 @@ export default function Home() {
                       className={cn(
                         'h-5 w-5',
                         health.services?.backend?.status === 'online'
-                          ? 'text-emerald-600'
-                          : 'text-rose-600',
+                          ? 'text-[var(--brand-success)]'
+                          : 'text-[var(--brand-danger)]',
                       )}
                     />
                     Backend API
@@ -715,8 +718,8 @@ export default function Home() {
                     variant="outline"
                     className={cn(
                       health.services?.backend?.status === 'online'
-                        ? 'border-emerald-200 bg-emerald-500/10 text-emerald-600'
-                        : 'border-rose-200 bg-rose-500/10 text-rose-600',
+                        ? 'status-success'
+                        : 'status-danger',
                     )}
                   >
                     {health.services?.backend?.status === 'online' ? 'Online' : 'Offline'}
@@ -736,8 +739,8 @@ export default function Home() {
               className={cn(
                 'border-muted',
                 health.services?.database?.status === 'online'
-                  ? 'border-emerald-200 bg-emerald-50/30'
-                  : 'border-rose-200 bg-rose-50/30',
+                  ? 'surface-success'
+                  : 'surface-danger',
               )}
             >
               <CardHeader className="pb-3">
@@ -747,8 +750,8 @@ export default function Home() {
                       className={cn(
                         'h-5 w-5',
                         health.services?.database?.status === 'online'
-                          ? 'text-emerald-600'
-                          : 'text-rose-600',
+                          ? 'text-[var(--brand-success)]'
+                          : 'text-[var(--brand-danger)]',
                       )}
                     />
                     Banco de Dados
@@ -757,8 +760,8 @@ export default function Home() {
                     variant="outline"
                     className={cn(
                       health.services?.database?.status === 'online'
-                        ? 'border-emerald-200 bg-emerald-500/10 text-emerald-600'
-                        : 'border-rose-200 bg-rose-500/10 text-rose-600',
+                        ? 'status-success'
+                        : 'status-danger',
                     )}
                   >
                     {health.services?.database?.status === 'online' ? 'Online' : 'Offline'}
@@ -780,10 +783,10 @@ export default function Home() {
               className={cn(
                 'border-muted',
                 health.services?.worker?.status === 'online'
-                  ? 'border-emerald-200 bg-emerald-50/30'
+                  ? 'surface-success'
                   : health.services?.worker?.status === 'unknown'
-                    ? 'border-amber-200 bg-amber-50/30'
-                    : 'border-rose-200 bg-rose-50/30',
+                    ? 'surface-warning'
+                    : 'surface-danger',
               )}
             >
               <CardHeader className="pb-3">
@@ -793,10 +796,10 @@ export default function Home() {
                       className={cn(
                         'h-5 w-5',
                         health.services?.worker?.status === 'online'
-                          ? 'text-emerald-600'
+                          ? 'text-[var(--brand-success)]'
                           : health.services?.worker?.status === 'unknown'
-                            ? 'text-amber-600'
-                            : 'text-rose-600',
+                            ? 'text-[var(--brand-warning)]'
+                            : 'text-[var(--brand-danger)]',
                       )}
                     />
                     Worker
@@ -805,10 +808,10 @@ export default function Home() {
                     variant="outline"
                     className={cn(
                       health.services?.worker?.status === 'online'
-                        ? 'border-emerald-200 bg-emerald-500/10 text-emerald-600'
+                        ? 'status-success'
                         : health.services?.worker?.status === 'unknown'
-                          ? 'border-amber-200 bg-amber-500/10 text-amber-600'
-                          : 'border-rose-200 bg-rose-500/10 text-rose-600',
+                          ? 'status-warning'
+                          : 'status-danger',
                     )}
                   >
                     {health.services?.worker?.status === 'online'
@@ -848,8 +851,8 @@ export default function Home() {
                 <p
                   className={cn(
                     'text-sm font-medium',
-                    card.trend === 'positive' && 'text-emerald-600',
-                    card.trend === 'negative' && 'text-rose-600',
+                    card.trend === 'positive' && 'text-[var(--brand-success)]',
+                    card.trend === 'negative' && 'text-[var(--brand-danger)]',
                     card.trend === 'neutral' && 'text-muted-foreground',
                   )}
                 >
@@ -863,15 +866,18 @@ export default function Home() {
         {/* Cards de Registros Únicos */}
         {stats?.uniqueRecords && (
           <section>
-            <h2 className="text-lg font-semibold mb-4">Registros Únicos Processados (24h)</h2>
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-[var(--brand-primary)]">
+              <span className="inline-block h-2 w-2 rounded-full bg-[var(--brand-accent)]" />
+              Registros Únicos Processados (24h)
+            </h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card className="border-muted">
                 <CardHeader className="pb-2">
                   <CardDescription className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-blue-600" />
+                    <ShieldCheck className="h-4 w-4 text-[var(--brand-primary)]" />
                     CIOT Únicos
                   </CardDescription>
-                  <CardTitle className="text-3xl font-semibold text-blue-600">
+                  <CardTitle className="metric-brand text-3xl font-semibold">
                     {loading ? '...' : stats.uniqueRecords.ciot.unique.toLocaleString('pt-BR')}
                   </CardTitle>
                 </CardHeader>
@@ -894,10 +900,10 @@ export default function Home() {
               <Card className="border-muted">
                 <CardHeader className="pb-2">
                   <CardDescription className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-green-600" />
+                    <ShieldCheck className="h-4 w-4 text-[var(--brand-success)]" />
                     NFSE Únicos
                   </CardDescription>
-                  <CardTitle className="text-3xl font-semibold text-green-600">
+                  <CardTitle className="text-3xl font-semibold text-[var(--brand-success)]">
                     {loading ? '...' : stats.uniqueRecords.nfse.unique.toLocaleString('pt-BR')}
                   </CardTitle>
                 </CardHeader>
@@ -920,10 +926,10 @@ export default function Home() {
               <Card className="border-muted">
                 <CardHeader className="pb-2">
                   <CardDescription className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-purple-600" />
+                    <ShieldCheck className="h-4 w-4 text-[var(--brand-info)]" />
                     CT-e Únicos
                   </CardDescription>
-                  <CardTitle className="text-3xl font-semibold text-purple-600">
+                  <CardTitle className="text-3xl font-semibold text-[var(--brand-info)]">
                     {loading ? '...' : stats.uniqueRecords.cte.unique.toLocaleString('pt-BR')}
                   </CardTitle>
                 </CardHeader>
@@ -946,10 +952,10 @@ export default function Home() {
               <Card className="border-muted">
                 <CardHeader className="pb-2">
                   <CardDescription className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-orange-600" />
+                    <ShieldCheck className="h-4 w-4 text-[var(--brand-warning)]" />
                     Pessoa Únicos
                   </CardDescription>
-                  <CardTitle className="text-3xl font-semibold text-orange-600">
+                  <CardTitle className="text-3xl font-semibold text-[var(--brand-warning)]">
                     {loading ? '...' : stats.uniqueRecords.pessoa.unique.toLocaleString('pt-BR')}
                   </CardTitle>
                 </CardHeader>
@@ -1177,7 +1183,7 @@ export default function Home() {
                             : null;
 
                           return (
-                            <TableRow key={evt.id} className={isFailed ? 'bg-rose-50/50' : ''}>
+                            <TableRow key={evt.id} className={isFailed ? 'surface-danger' : ''}>
                               <TableCell className="font-mono text-xs break-all">
                                 {evt.id}
                               </TableCell>
@@ -1248,7 +1254,7 @@ export default function Home() {
             </CardHeader>
             <CardContent className="space-y-5">
               {stats && stats.failed > 0 && (
-                <div className="rounded-xl border border-dashed bg-rose-50/40 p-4">
+                <div className="surface-danger rounded-xl border border-dashed p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold">Falhas detectadas</p>
@@ -1256,14 +1262,14 @@ export default function Home() {
                         {stats.failed} eventos com falha
                       </p>
                     </div>
-                    <Badge variant="outline" className="border-rose-200 text-rose-700">
+                    <Badge variant="outline" className="status-danger">
                       Ativo
                     </Badge>
                   </div>
                 </div>
               )}
               {stats && stats.pending > 10 && (
-                <div className="rounded-xl border border-dashed bg-amber-50/40 p-4">
+                <div className="surface-warning rounded-xl border border-dashed p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold">Fila de processamento</p>
@@ -1271,14 +1277,14 @@ export default function Home() {
                         {stats.pending} eventos pendentes
                       </p>
                     </div>
-                    <Badge variant="outline" className="border-amber-200 text-amber-700">
+                    <Badge variant="outline" className="status-warning">
                       Ativo
                     </Badge>
                   </div>
                 </div>
               )}
               {stats?.integrationStats && stats.integrationStats.failed > 0 && (
-                <div className="rounded-xl border border-dashed bg-rose-50/40 p-4">
+                <div className="surface-danger rounded-xl border border-dashed p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold">Falhas de integração</p>
@@ -1286,7 +1292,7 @@ export default function Home() {
                         {stats.integrationStats.failed} eventos não integrados
                       </p>
                     </div>
-                    <Badge variant="outline" className="border-rose-200 text-rose-700">
+                    <Badge variant="outline" className="status-danger">
                       Ativo
                     </Badge>
                   </div>
@@ -1357,14 +1363,14 @@ export default function Home() {
                 recentErrors.map((err) => (
                   <div
                     key={err.id}
-                    className="rounded-2xl border border-rose-200/70 bg-rose-50/70 p-4 text-sm text-rose-900"
+                    className="surface-danger rounded-2xl border p-4 text-sm text-[var(--brand-danger)]"
                   >
                     <div className="flex items-start gap-3">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 text-rose-500" />
+                      <AlertTriangle className="mt-0.5 h-4 w-4 text-[var(--brand-danger)]" />
                       <div className="space-y-1">
                         <p className="font-semibold">{err.event}</p>
                         <p className="text-xs">{err.detail}</p>
-                        <p className="text-xs text-rose-700">
+                        <p className="text-xs text-[var(--brand-danger)]">
                           {err.resolution} • {err.lastAttempt}
                         </p>
                       </div>
@@ -1402,14 +1408,14 @@ export default function Home() {
 
               <TabsContent value="eventos" className="mt-6">
                 <div className="grid gap-4 md:grid-cols-3">
-                  <Card className="border border-emerald-200 bg-emerald-50/60">
+                  <Card className="surface-success border">
                     <CardHeader className="pb-2">
                       <CardDescription>Processados com sucesso</CardDescription>
                       <CardTitle className="text-3xl">
                         {loading ? '...' : `${successRate}%`}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-emerald-900">
+                    <CardContent className="text-sm text-[var(--brand-success)]">
                       {stats && stats.successRate >= 95
                         ? 'Dentro da meta (≥ 95%)'
                         : stats && stats.successRate >= 80
@@ -1417,7 +1423,7 @@ export default function Home() {
                           : 'Atenção necessária'}
                     </CardContent>
                   </Card>
-                  <Card className="border border-blue-200 bg-blue-50/60">
+                  <Card className="surface-info border">
                     <CardHeader className="pb-2">
                       <CardDescription>Tempo médio</CardDescription>
                       <CardTitle className="text-3xl">
@@ -1428,20 +1434,20 @@ export default function Home() {
                             : '0s'}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-blue-900">
+                    <CardContent className="text-sm text-[var(--brand-info)]">
                       {performance && performance.hourlyStats.length > 0
                         ? `Maior pico às ${performance.hourlyStats.reduce((a, b) => (b.count > a.count ? b : a)).hour}h`
                         : 'Sem dados'}
                     </CardContent>
                   </Card>
-                  <Card className="border border-amber-200 bg-amber-50/60">
+                  <Card className="surface-warning border">
                     <CardHeader className="pb-2">
                       <CardDescription>Eventos em retry</CardDescription>
                       <CardTitle className="text-3xl">
                         {loading ? '...' : failures.filter((f) => f.retryCount > 0).length}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-amber-900">
+                    <CardContent className="text-sm text-[var(--brand-warning)]">
                       {failures.filter((f) => f.retryCount >= 3).length} aguardando intervenção
                     </CardContent>
                   </Card>
@@ -1450,47 +1456,47 @@ export default function Home() {
 
               <TabsContent value="integracao" className="mt-6">
                 <div className="grid gap-4 md:grid-cols-4">
-                  <Card className="border border-emerald-200 bg-emerald-50/60">
+                  <Card className="surface-success border">
                     <CardHeader className="pb-2">
                       <CardDescription>Integrados</CardDescription>
                       <CardTitle className="text-3xl">
                         {loading ? '...' : stats?.integrationStats?.integrated || 0}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-emerald-900">
+                    <CardContent className="text-sm text-[var(--brand-success)]">
                       Eventos integrados com sucesso na Senior
                     </CardContent>
                   </Card>
-                  <Card className="border border-amber-200 bg-amber-50/60">
+                  <Card className="surface-warning border">
                     <CardHeader className="pb-2">
                       <CardDescription>Pendentes</CardDescription>
                       <CardTitle className="text-3xl">
                         {loading ? '...' : stats?.integrationStats?.pending || 0}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-amber-900">
+                    <CardContent className="text-sm text-[var(--brand-warning)]">
                       Aguardando integração
                     </CardContent>
                   </Card>
-                  <Card className="border border-rose-200 bg-rose-50/60">
+                  <Card className="surface-danger border">
                     <CardHeader className="pb-2">
                       <CardDescription>Falhas</CardDescription>
                       <CardTitle className="text-3xl">
                         {loading ? '...' : stats?.integrationStats?.failed || 0}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-rose-900">
+                    <CardContent className="text-sm text-[var(--brand-danger)]">
                       Falhas na integração
                     </CardContent>
                   </Card>
-                  <Card className="border border-gray-200 bg-gray-50/60">
+                  <Card className="surface-neutral border">
                     <CardHeader className="pb-2">
                       <CardDescription>Ignorados</CardDescription>
                       <CardTitle className="text-3xl">
                         {loading ? '...' : stats?.integrationStats?.skipped || 0}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="text-sm text-gray-900">
+                    <CardContent className="text-sm text-foreground">
                       Eventos não requerem integração
                     </CardContent>
                   </Card>
@@ -1500,14 +1506,14 @@ export default function Home() {
               <TabsContent value="falhas" className="mt-6">
                 <div className="space-y-4 text-sm">
                   {stats && stats.failed > 0 ? (
-                    <div className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50/70 p-4">
+                    <div className="surface-danger flex items-center justify-between rounded-2xl border p-4">
                       <div>
-                        <p className="font-medium text-rose-900">Eventos com falha</p>
-                        <p className="text-xs text-rose-700">
+                        <p className="font-medium text-[var(--brand-danger)]">Eventos com falha</p>
+                        <p className="text-xs text-[var(--brand-danger)]">
                           {stats.failed} falhas nas últimas 24h
                         </p>
                       </div>
-                      <Badge variant="outline" className="border-rose-200 text-rose-700">
+                      <Badge variant="outline" className="status-danger">
                         {stats.total > 0 ? ((stats.failed / stats.total) * 100).toFixed(1) : 0}%
                       </Badge>
                     </div>

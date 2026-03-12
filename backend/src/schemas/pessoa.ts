@@ -180,4 +180,3 @@ export type DadosBancario = z.infer<typeof dadosBancarioSchema>;
 export type ChavesPix = z.infer<typeof chavesPixSchema>;
 export type PessoaFuncionario = z.infer<typeof pessoaFuncionarioSchema>;
 export type PessoaMotorista = z.infer<typeof pessoaMotoristaSchema>;
-

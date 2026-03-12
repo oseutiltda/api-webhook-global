@@ -88,4 +88,3 @@ export type Customer = z.infer<typeof customerSchema>;
 export type AccountingPlanningManagement = z.infer<typeof accountingPlanningManagementSchema>;
 export type Installments = z.infer<typeof installmentsSchema>;
 export type InvoiceItems = z.infer<typeof invoiceItemsSchema>;
-

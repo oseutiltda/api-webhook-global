@@ -16,4 +16,3 @@ export const contasReceberBaixaSchema = z.object({
 });
 
 export type ContasReceberBaixa = z.infer<typeof contasReceberBaixaSchema>;
-

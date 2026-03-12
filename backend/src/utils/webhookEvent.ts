@@ -18,12 +18,12 @@ export async function createOrUpdateWebhookEvent(
   status: 'pending' | 'processing' | 'processed' | 'failed',
   errorMessage?: string | null,
   metadata?: Record<string, any> | null,
-  tipoIntegracao?: string | null
+  tipoIntegracao?: string | null,
 ): Promise<void> {
   try {
     // Se tipoIntegracao não for fornecido, usar 'Web API' como padrão (chamado do backend)
     const tipo = tipoIntegracao || 'Web API';
-    
+
     await prisma.webhookEvent.upsert({
       where: { id: eventId },
       create: {
@@ -62,18 +62,24 @@ export async function createOrUpdateWebhookEvent(
         logger.debug({ eventId, source }, 'Evento WebhookEvent atualizado após unique constraint');
       } catch (updateError: any) {
         // Se também falhar na atualização, apenas logar como aviso (não é crítico)
-        logger.warn({ 
-          error: updateError?.message, 
-          eventId, 
-          source 
-        }, 'Erro ao atualizar WebhookEvent após unique constraint');
+        logger.warn(
+          {
+            error: updateError?.message,
+            eventId,
+            source,
+          },
+          'Erro ao atualizar WebhookEvent após unique constraint',
+        );
       }
       return; // Sair silenciosamente após tentar atualizar
     }
-    
+
     // Ignorar erros de tabela não existente ou outros erros não críticos
     if (error?.code !== 'P2021' && error?.code !== 'P2003') {
-      logger.warn({ error: error?.message, eventId, source }, 'Erro ao criar/atualizar WebhookEvent');
+      logger.warn(
+        { error: error?.message, eventId, source },
+        'Erro ao criar/atualizar WebhookEvent',
+      );
     }
   }
 }
@@ -92,4 +98,3 @@ export function generateCiotEventId(manifestId?: number | null, nrciot?: string 
   // Fallback: usar timestamp
   return `ciot-${Date.now()}`;
 }
-
